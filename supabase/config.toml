@@ -1,0 +1,5 @@
+[functions.admin-create-user]
+verify_jwt = true
+
+[functions.lead-intake]
+verify_jwt = false

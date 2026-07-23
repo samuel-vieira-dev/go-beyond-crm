@@ -1,0 +1,85 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  /* Go Beyond brand */
+  --color-navy-950: #0a1230;
+  --color-navy-900: #0e1a42;
+  --color-navy-800: #16255b;
+  --color-navy-700: #1e3172;
+  --color-navy-600: #2a4290;
+
+  --color-gold-400: #f3c374;
+  --color-gold-500: #efaf55;
+  --color-gold-600: #d99633;
+
+  --color-danger: #ef4444;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100svh;
+    font-family: var(--font-sans);
+    background:
+      radial-gradient(circle at 15% 0%, rgba(42, 66, 144, 0.35), transparent 55%),
+      linear-gradient(160deg, var(--color-navy-950) 0%, var(--color-navy-800) 100%);
+    background-attachment: fixed;
+    color: #eef1fb;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
+
+  ::selection {
+    background: var(--color-gold-500);
+    color: var(--color-navy-950);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-navy-600) transparent;
+  }
+}
+
+@layer components {
+  .card-surface {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(6px);
+  }
+}
+
+/* Card de No-Show "tremendo" até o pré-vendedor clicar nele */
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20% {
+    transform: translateX(-3px) rotate(-1deg);
+  }
+  40% {
+    transform: translateX(3px) rotate(1deg);
+  }
+  60% {
+    transform: translateX(-2px) rotate(-0.5deg);
+  }
+  80% {
+    transform: translateX(2px) rotate(0.5deg);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.6s ease-in-out infinite;
+}
