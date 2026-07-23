@@ -1,9 +1,10 @@
 -- Go Beyond Ops — usuários FAKE para validar usabilidade
 -- Rodar no SQL Editor do Supabase (depois de schema.sql).
--- Cria 3 contas de teste (SDR, Social Seller, Closer) direto no Supabase Auth,
+-- Cria 4 contas de teste (Admin, SDR, Social Seller, Closer) direto no Supabase Auth,
 -- sem precisar da Edge Function admin-create-user.
 --
 -- Login de todas: senha "gobeyond123"
+--   admin@gobeyond.test
 --   sdr@gobeyond.test
 --   social@gobeyond.test
 --   closer@gobeyond.test
@@ -17,6 +18,7 @@ declare
 begin
   for rec in
     select * from (values
+      ('admin@gobeyond.test',  'Admin Teste',         'admin'),
       ('sdr@gobeyond.test',    'SDR Teste',           'sdr'),
       ('social@gobeyond.test', 'Social Seller Teste', 'social_seller'),
       ('closer@gobeyond.test', 'Closer Teste',        'closer')
@@ -57,6 +59,11 @@ end $$;
 
 -- Garante que os profiles tenham o papel certo (caso o trigger tenha usado o default).
 update public.profiles p
+set role = 'admin'
+from auth.users u
+where p.id = u.id and u.email = 'admin@gobeyond.test';
+
+update public.profiles p
 set role = 'sdr'
 from auth.users u
 where p.id = u.id and u.email = 'sdr@gobeyond.test';
@@ -80,5 +87,5 @@ order by pr.role;
 -- ---------------------------------------------------------------------------
 -- Para REMOVER os usuários de teste depois (descomente e rode):
 -- delete from auth.users
--- where email in ('sdr@gobeyond.test', 'social@gobeyond.test', 'closer@gobeyond.test');
+-- where email in ('admin@gobeyond.test', 'sdr@gobeyond.test', 'social@gobeyond.test', 'closer@gobeyond.test');
 -- (o profile some junto por cascade)
