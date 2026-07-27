@@ -8,7 +8,7 @@ export function SdrPage() {
       subtitle="Atendimento via WhatsApp (Clint) até o agendamento com o Closer"
       columns={SDR_COLUMNS}
       defaultOrigin="manual"
-      originOptions={['manual', 'quiz', 'indicacao', 'outro']}
+      originOptions={['clint', 'manual', 'quiz', 'indicacao', 'outro']}
     />
   )
 }

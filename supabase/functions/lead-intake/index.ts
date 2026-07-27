@@ -1,8 +1,9 @@
 // Edge Function: lead-intake
-// Webhook público para receber leads do quiz (mesmo payload "form_response" que hoje
-// vai pro relay AWSales — ver quiz-link-bio/RASTREAMENTO.md). Protegido por um
-// header secreto (LEAD_INTAKE_SECRET) em vez de sessão de usuário.
-// Usa a service role key, então grava direto sem passar pelas policies de RLS.
+// Webhook para criar leads automaticamente a partir de fontes externas:
+//  - Clint (payload achatado: contact_name, contact_phone, contact_email, contact_utm_*, deal_*)
+//  - Quiz / relay AWSales (payload aninhado: { lead: { phone, email }, form_answers: [...] })
+// Protegido por um header secreto (LEAD_INTAKE_SECRET) — não usa sessão de usuário.
+// Grava com a service role key (bypassa RLS). Leads entram sem dono, na fila do SDR.
 
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
@@ -18,23 +19,24 @@ function json(body: unknown, status = 200) {
   })
 }
 
-interface FormAnswer {
-  question_id: string
-  question: string
-  answer: string
-}
-
-interface QuizPayload {
-  event?: string
-  timestamp?: string
-  form?: { id?: string; name?: string }
-  lead?: { phone?: string; email?: string }
-  form_answers?: FormAnswer[]
-  metadata?: Record<string, unknown>
-}
-
 function onlyDigits(value: string) {
-  return value.replace(/\D/g, '')
+  return String(value ?? '').replace(/\D/g, '')
+}
+
+function clean(value: unknown): string | null {
+  const s = typeof value === 'string' ? value.trim() : value == null ? '' : String(value)
+  if (!s) return null
+  if (s.includes('@naoinformado')) return null
+  return s
+}
+
+// deixa só as chaves com valor (para o jsonb de utm/rastreio)
+function compact(obj: Record<string, unknown>) {
+  const out: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== null && v !== undefined && v !== '') out[k] = v
+  }
+  return Object.keys(out).length ? out : null
 }
 
 Deno.serve(async (req) => {
@@ -48,20 +50,44 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const payload = (await req.json()) as QuizPayload
+    // deno-lint-ignore no-explicit-any
+    const body = (await req.json()) as Record<string, any>
 
-    const phoneDigits = onlyDigits(payload.lead?.phone ?? '')
-    if (!phoneDigits) return json({ error: 'lead.phone é obrigatório.' }, 400)
+    // ---- Extrai os campos aceitando os dois formatos ----
+    // Clint (achatado) tem prioridade; quiz (aninhado) como fallback.
+    const rawPhone = body.contact_phone ?? body.phone ?? body.lead?.phone ?? ''
+    const phoneDigits = onlyDigits(rawPhone)
+    if (!phoneDigits) return json({ error: 'Telefone (contact_phone) é obrigatório.' }, 400)
 
-    const answers = payload.form_answers ?? []
+    const name = clean(body.contact_name ?? body.name ?? body.lead?.name) ?? `Lead Clint (${phoneDigits.slice(-4)})`
+    const email = clean(body.contact_email ?? body.email ?? body.lead?.email)
+    const instagram = clean(body.contact_instagram ?? body.instagram)
+
+    // Fonte: é 'clint' quando vem da Clint (payload achatado), senão 'quiz'.
+    const isClint = body.contact_phone !== undefined || body.deal_origin !== undefined || body.deal_stage !== undefined
+    const origin = isClint ? 'clint' : 'quiz'
+
+    // Respostas do quiz (formato antigo), se houver.
     const quizAnswers: Record<string, string> = {}
-    for (const a of answers) quizAnswers[a.question_id] = a.answer
+    for (const a of body.form_answers ?? []) {
+      if (a?.question_id) quizAnswers[a.question_id] = a.answer
+    }
+    const rota = (body.form_answers ?? []).find((a: { question_id?: string }) => a?.question_id === 'rota')?.answer ?? ''
+    const isMql = String(rota).toUpperCase().includes('MQL') && !String(rota).toLowerCase().includes('nao')
 
-    const rota = answers.find((a) => a.question_id === 'rota')?.answer ?? ''
-    const isMql = rota.toUpperCase().includes('MQL') && !rota.toLowerCase().includes('nao')
-
-    const rawEmail = payload.lead?.email ?? null
-    const email = rawEmail && rawEmail.includes('@naoinformado') ? null : rawEmail
+    // UTMs / rastreio consolidados no jsonb.
+    const utm = compact({
+      utm: body.contact_utm,
+      utm_source: body.contact_utm_source ?? body.utm_source,
+      utm_medium: body.contact_utm_medium ?? body.utm_medium,
+      utm_campaign: body.contact_utm_campaign ?? body.utm_campaign,
+      utm_term: body.contact_utm_term ?? body.utm_term,
+      utm_content: body.contact_utm_content ?? body.utm_content,
+      deal_origin: body.deal_origin,
+      deal_stage: body.deal_stage,
+      deal_user: body.deal_user,
+      ...(body.metadata ?? {}),
+    })
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -70,14 +96,16 @@ Deno.serve(async (req) => {
     const { data: lead, error } = await supabase
       .from('leads')
       .insert({
-        name: `Lead via Quiz (${phoneDigits.slice(-4)})`,
+        name,
         whatsapp: phoneDigits,
         email,
-        origin: 'quiz',
+        instagram,
+        origin,
         is_mql: isMql,
         stage: 'novo_lead',
-        quiz_answers: quizAnswers,
-        utm: payload.metadata ?? null,
+        quiz_answers: Object.keys(quizAnswers).length ? quizAnswers : null,
+        utm,
+        owner_id: null, // entra na fila de não atribuídos (SDR assume / Admin distribui)
       })
       .select()
       .single()
@@ -88,7 +116,7 @@ Deno.serve(async (req) => {
       lead_id: lead.id,
       type: 'created',
       to_stage: 'novo_lead',
-      payload: { source: 'lead-intake-webhook', form: payload.form ?? null },
+      payload: { source: isClint ? 'clint-webhook' : 'quiz-webhook' },
     })
 
     return json({ ok: true, lead_id: lead.id }, 200)

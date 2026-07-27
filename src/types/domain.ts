@@ -1,6 +1,6 @@
 export type Role = 'admin' | 'sdr' | 'social_seller' | 'closer'
 
-export type LeadOrigin = 'quiz' | 'instagram' | 'indicacao' | 'manual' | 'outro'
+export type LeadOrigin = 'quiz' | 'clint' | 'instagram' | 'indicacao' | 'manual' | 'outro'
 
 export type LeadStage =
   | 'novo_lead'
@@ -51,6 +51,7 @@ export const STAGE_LABELS: Record<LeadStage, string> = {
 
 export const ORIGIN_LABELS: Record<LeadOrigin, string> = {
   quiz: 'Quiz',
+  clint: 'Clint',
   instagram: 'Instagram',
   indicacao: 'Indicação',
   manual: 'Manual',
@@ -153,7 +154,7 @@ export const SOCIAL_SELLER_COLUMNS: BoardColumn[] = [
  *  ou Manual (cadastrado à mão por um pré-vendedor). A origem detalhada continua
  *  disponível no detalhe do lead e nos filtros. */
 export function entryChannel(origin: LeadOrigin): 'Manual' | 'Clint' {
-  return origin === 'quiz' ? 'Clint' : 'Manual'
+  return origin === 'clint' || origin === 'quiz' ? 'Clint' : 'Manual'
 }
 
 export type StageAccent = 'green' | 'red' | 'none'

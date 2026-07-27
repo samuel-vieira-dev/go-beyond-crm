@@ -15,7 +15,7 @@ do $$ begin
 exception when duplicate_object then null; end $$;
 
 do $$ begin
-  create type public.lead_origin as enum ('quiz', 'instagram', 'indicacao', 'manual', 'outro');
+  create type public.lead_origin as enum ('quiz', 'clint', 'instagram', 'indicacao', 'manual', 'outro');
 exception when duplicate_object then null; end $$;
 
 do $$ begin
