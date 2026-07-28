@@ -45,15 +45,20 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Use POST.' }, 405)
 
   const expectedSecret = Deno.env.get('LEAD_INTAKE_SECRET')
-  const providedSecret = req.headers.get('x-webhook-secret')
+  // Aceita o segredo pelo header OU pela query string (?secret= / ?token=),
+  // porque a Clint não permite configurar headers customizados.
+  const url = new URL(req.url)
+  const providedSecret =
+    req.headers.get('x-webhook-secret') ||
+    url.searchParams.get('secret') ||
+    url.searchParams.get('token') ||
+    ''
   if (!expectedSecret) {
     console.error('[lead-intake] LEAD_INTAKE_SECRET não configurado no ambiente')
     return json({ error: 'Segredo não configurado no servidor.' }, 500)
   }
   if (providedSecret !== expectedSecret) {
-    console.warn(
-      `[lead-intake] 401 — header x-webhook-secret ${providedSecret ? 'incorreto' : 'ausente'}`,
-    )
+    console.warn(`[lead-intake] 401 — segredo ${providedSecret ? 'incorreto' : 'ausente'} (header e query)`)
     return json({ error: 'Não autorizado.' }, 401)
   }
 
