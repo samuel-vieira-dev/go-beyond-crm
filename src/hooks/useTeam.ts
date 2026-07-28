@@ -31,3 +31,15 @@ export function useUpdateTeamMember() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profiles'] }),
   })
 }
+
+export function useDeleteTeamMember() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', { body: { user_id: userId } })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['profiles'] }),
+  })
+}

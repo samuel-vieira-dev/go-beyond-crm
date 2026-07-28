@@ -33,18 +33,23 @@ Deno.serve(async (req) => {
     const p = (await req.json()) as Record<string, any>
     console.log('[quiz-intake] payload:', JSON.stringify(p).slice(0, 1500))
 
-    const phone = onlyDigits(p?.lead?.phone ?? p?.phone ?? p?.contact_phone)
-    if (phone.length < 10 || phone.length > 13) {
+    let phone = onlyDigits(p?.lead?.phone ?? p?.phone ?? p?.contact_phone)
+    // Remove o código do país (55) — guardamos o número BR de 10/11 dígitos.
+    if (phone.length >= 12 && phone.startsWith('55')) phone = phone.slice(2)
+    if (phone.length < 10 || phone.length > 11) {
       return json({ error: 'Telefone inválido.' }, 400)
     }
 
-    const answers: { question_id?: string; answer?: string }[] = p?.form_answers ?? []
+    const answers: { question_id?: string; question?: string; answer?: string }[] = p?.form_answers ?? []
     const byId = (id: string) => answers.find((a) => a?.question_id === id)?.answer ?? ''
     const rota = String(byId('rota'))
     const isMql = rota.toUpperCase().includes('MQL') && !rota.toLowerCase().includes('nao')
 
-    const quizAnswers: Record<string, string> = {}
-    for (const a of answers) if (a?.question_id) quizAnswers[a.question_id] = String(a.answer ?? '')
+    // Respostas do quiz viram NOTA (texto), não campos personalizados (escala melhor).
+    const notes = answers
+      .filter((a) => a?.answer)
+      .map((a) => `${a.question || a.question_id}: ${a.answer}`)
+      .join('\n') || null
 
     const rawEmail = p?.lead?.email ?? p?.email ?? null
     const email = rawEmail && String(rawEmail).includes('@naoinformado') ? null : rawEmail
@@ -53,19 +58,21 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
-    const objetivo = byId('objetivo') || p?.metadata?.objetivo || ''
+    // Distribuição automática round-robin entre os SDRs ativos.
+    const { data: ownerId } = await supabase.rpc('next_sdr_owner')
+
     const { data: lead, error } = await supabase
       .from('leads')
       .insert({
-        name: objetivo ? `Lead Quiz — ${objetivo}`.slice(0, 80) : `Lead Quiz (${phone.slice(-4)})`,
+        name: phone, // sem nome no quiz → título do card é o número
         whatsapp: phone,
         email,
         origin: 'quiz',
         is_mql: isMql,
         stage: 'novo_lead',
-        quiz_answers: Object.keys(quizAnswers).length ? quizAnswers : null,
+        notes,
         utm,
-        owner_id: null,
+        owner_id: ownerId ?? null,
       })
       .select()
       .single()

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { FormRow, Select, Textarea } from '@/components/ui/Field'
 import { useAuth } from '@/context/AuthContext'
-import { useAddLeadNote, useClaimLead, useDeleteLead, useLead, useLeadEvents, useUpdateLead } from '@/hooks/useLeads'
+import { useAddLeadNote, useDeleteLead, useLead, useLeadEvents, useUpdateLead } from '@/hooks/useLeads'
 import { useProfiles } from '@/hooks/useProfiles'
 import { LeadEditModal } from './LeadEditModal'
 import { ActivitiesSection } from './ActivitiesSection'
@@ -33,7 +33,6 @@ export function LeadDetailModal({
   extraActions?: React.ReactNode
 }) {
   const { profile } = useAuth()
-  const claimLead = useClaimLead()
   const deleteLead = useDeleteLead()
   const addNote = useAddLeadNote()
   const updateLead = useUpdateLead()
@@ -52,7 +51,6 @@ export function LeadDetailModal({
 
   if (!lead || !current) return null
 
-  const canClaim = !current.owner_id && (profile?.role === 'sdr' || profile?.role === 'social_seller')
   const canEdit = profile?.role !== undefined
   const whatsappDigits = current.whatsapp.replace(/\D/g, '')
 
@@ -95,41 +93,23 @@ export function LeadDetailModal({
 
           {isAdmin && (
             <div className="card-surface space-y-2 rounded-lg p-3">
-              <p className="text-xs font-medium text-gold-400 uppercase">Distribuição (Admin)</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <p className="mb-1 text-xs text-white/40">Responsável</p>
-                  <Select
-                    value={current.owner_id ?? ''}
-                    onChange={(e) => updateLead.mutate({ id: current.id, owner_id: e.target.value || null })}
-                  >
-                    <option value="">Sem responsável (fila)</option>
-                    {(preSalers ?? [])
-                      .filter((p) => p.role === 'sdr' || p.role === 'social_seller')
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.full_name}
-                        </option>
-                      ))}
-                  </Select>
-                </div>
-                <div>
-                  <p className="mb-1 text-xs text-white/40">Closer</p>
-                  <Select
-                    value={current.closer_id ?? ''}
-                    onChange={(e) => updateLead.mutate({ id: current.id, closer_id: e.target.value || null })}
-                  >
-                    <option value="">—</option>
-                    {(preSalers ?? [])
-                      .filter((p) => p.role === 'closer')
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.full_name}
-                        </option>
-                      ))}
-                  </Select>
-                </div>
-              </div>
+              <p className="text-xs font-medium text-gold-400 uppercase">Closer (Admin)</p>
+              <Select
+                value={current.closer_id ?? ''}
+                onChange={(e) => updateLead.mutate({ id: current.id, closer_id: e.target.value || null })}
+              >
+                <option value="">—</option>
+                {(preSalers ?? [])
+                  .filter((p) => p.role === 'closer')
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.full_name}
+                    </option>
+                  ))}
+              </Select>
+              <p className="text-[11px] text-white/30">
+                A distribuição de leads para SDR é automática (round-robin).
+              </p>
             </div>
           )}
 
@@ -178,15 +158,6 @@ export function LeadDetailModal({
           </div>
 
           <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
-            {canClaim && (
-              <Button
-                size="sm"
-                disabled={claimLead.isPending}
-                onClick={() => claimLead.mutate(current.id)}
-              >
-                Assumir lead
-              </Button>
-            )}
             {extraActions}
             <Button
               size="sm"

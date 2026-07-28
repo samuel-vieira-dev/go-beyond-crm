@@ -3,6 +3,9 @@ project_id = "gobeyond-ops"
 [functions.admin-create-user]
 verify_jwt = true
 
+[functions.admin-delete-user]
+verify_jwt = true
+
 [functions.lead-intake]
 verify_jwt = false
 

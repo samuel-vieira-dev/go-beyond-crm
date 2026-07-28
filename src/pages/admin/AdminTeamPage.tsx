@@ -4,13 +4,23 @@ import { Modal } from '@/components/ui/Modal'
 import { FormRow, Input, Select } from '@/components/ui/Field'
 import { Badge } from '@/components/ui/Badge'
 import { useAllProfiles } from '@/hooks/useProfiles'
-import { useCreateTeamMember, useUpdateTeamMember } from '@/hooks/useTeam'
+import { useCreateTeamMember, useDeleteTeamMember, useUpdateTeamMember } from '@/hooks/useTeam'
 import { ROLE_LABELS, type Role } from '@/types/domain'
 
 export function AdminTeamPage() {
   const { data: profiles, isLoading } = useAllProfiles()
   const updateMember = useUpdateTeamMember()
+  const deleteMember = useDeleteTeamMember()
   const [formOpen, setFormOpen] = useState(false)
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Excluir ${name}? A conta e o acesso são removidos. Os leads dele ficam sem responsável.`)) return
+    try {
+      await deleteMember.mutateAsync(id)
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Não foi possível excluir.')
+    }
+  }
 
   return (
     <div className="space-y-5">
@@ -32,6 +42,7 @@ export function AdminTeamPage() {
                 <th className="px-4 py-3 font-medium">Nome</th>
                 <th className="px-4 py-3 font-medium">Papel</th>
                 <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 text-right font-medium">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -55,6 +66,11 @@ export function AdminTeamPage() {
                     <button onClick={() => updateMember.mutate({ id: p.id, active: !p.active })}>
                       <Badge tone={p.active ? 'green' : 'neutral'}>{p.active ? 'Ativo' : 'Inativo'}</Badge>
                     </button>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <Button size="sm" variant="danger" onClick={() => handleDelete(p.id, p.full_name)}>
+                      Excluir
+                    </Button>
                   </td>
                 </tr>
               ))}

@@ -72,10 +72,12 @@ Deno.serve(async (req) => {
     // ---- Extrai os campos aceitando os dois formatos ----
     // Clint (achatado) tem prioridade; quiz (aninhado) como fallback.
     const rawPhone = body.contact_phone ?? body.phone ?? body.lead?.phone ?? ''
-    const phoneDigits = onlyDigits(rawPhone)
+    let phoneDigits = onlyDigits(rawPhone)
+    if (phoneDigits.length >= 12 && phoneDigits.startsWith('55')) phoneDigits = phoneDigits.slice(2)
     if (!phoneDigits) return json({ error: 'Telefone (contact_phone) é obrigatório.' }, 400)
 
-    const name = clean(body.contact_name ?? body.name ?? body.lead?.name) ?? `Lead Clint (${phoneDigits.slice(-4)})`
+    // Sem nome → título do card é o número.
+    const name = clean(body.contact_name ?? body.name ?? body.lead?.name) ?? phoneDigits
     const email = clean(body.contact_email ?? body.email ?? body.lead?.email)
     const instagram = clean(body.contact_instagram ?? body.instagram)
 
@@ -83,11 +85,12 @@ Deno.serve(async (req) => {
     const isClint = body.contact_phone !== undefined || body.deal_origin !== undefined || body.deal_stage !== undefined
     const origin = isClint ? 'clint' : 'quiz'
 
-    // Respostas do quiz (formato antigo), se houver.
-    const quizAnswers: Record<string, string> = {}
-    for (const a of body.form_answers ?? []) {
-      if (a?.question_id) quizAnswers[a.question_id] = a.answer
-    }
+    // Respostas do quiz (formato antigo) viram NOTA em texto.
+    const notes =
+      (body.form_answers ?? [])
+        .filter((a: { answer?: string }) => a?.answer)
+        .map((a: { question?: string; question_id?: string; answer?: string }) => `${a.question || a.question_id}: ${a.answer}`)
+        .join('\n') || null
     const rota = (body.form_answers ?? []).find((a: { question_id?: string }) => a?.question_id === 'rota')?.answer ?? ''
     const isMql = String(rota).toUpperCase().includes('MQL') && !String(rota).toLowerCase().includes('nao')
 
@@ -109,6 +112,9 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, serviceRoleKey)
 
+    // Distribuição automática round-robin entre os SDRs ativos.
+    const { data: ownerId } = await supabase.rpc('next_sdr_owner')
+
     const { data: lead, error } = await supabase
       .from('leads')
       .insert({
@@ -119,9 +125,9 @@ Deno.serve(async (req) => {
         origin,
         is_mql: isMql,
         stage: 'novo_lead',
-        quiz_answers: Object.keys(quizAnswers).length ? quizAnswers : null,
+        notes,
         utm,
-        owner_id: null, // entra na fila de não atribuídos (SDR assume / Admin distribui)
+        owner_id: ownerId ?? null, // SDR escolhido por round-robin
       })
       .select()
       .single()
