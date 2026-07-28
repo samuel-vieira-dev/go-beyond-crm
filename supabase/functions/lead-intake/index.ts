@@ -40,18 +40,29 @@ function compact(obj: Record<string, unknown>) {
 }
 
 Deno.serve(async (req) => {
+  console.log(`[lead-intake] ${req.method} recebido`)
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   if (req.method !== 'POST') return json({ error: 'Use POST.' }, 405)
 
   const expectedSecret = Deno.env.get('LEAD_INTAKE_SECRET')
   const providedSecret = req.headers.get('x-webhook-secret')
-  if (!expectedSecret || providedSecret !== expectedSecret) {
+  if (!expectedSecret) {
+    console.error('[lead-intake] LEAD_INTAKE_SECRET não configurado no ambiente')
+    return json({ error: 'Segredo não configurado no servidor.' }, 500)
+  }
+  if (providedSecret !== expectedSecret) {
+    console.warn(
+      `[lead-intake] 401 — header x-webhook-secret ${providedSecret ? 'incorreto' : 'ausente'}`,
+    )
     return json({ error: 'Não autorizado.' }, 401)
   }
 
+  let raw = ''
   try {
+    raw = await req.text()
+    console.log('[lead-intake] payload recebido:', raw.slice(0, 2000))
     // deno-lint-ignore no-explicit-any
-    const body = (await req.json()) as Record<string, any>
+    const body = (raw ? JSON.parse(raw) : {}) as Record<string, any>
 
     // ---- Extrai os campos aceitando os dois formatos ----
     // Clint (achatado) tem prioridade; quiz (aninhado) como fallback.
@@ -110,7 +121,10 @@ Deno.serve(async (req) => {
       .select()
       .single()
 
-    if (error) return json({ error: error.message }, 400)
+    if (error) {
+      console.error('[lead-intake] erro ao inserir lead:', error.message, '| dados:', JSON.stringify({ name, phoneDigits, origin }))
+      return json({ error: error.message }, 400)
+    }
 
     await supabase.from('lead_events').insert({
       lead_id: lead.id,
@@ -119,8 +133,10 @@ Deno.serve(async (req) => {
       payload: { source: isClint ? 'clint-webhook' : 'quiz-webhook' },
     })
 
+    console.log(`[lead-intake] OK — lead criado ${lead.id} (${origin}, ${name})`)
     return json({ ok: true, lead_id: lead.id }, 200)
   } catch (err) {
+    console.error('[lead-intake] exceção:', err instanceof Error ? err.message : String(err), '| payload bruto:', raw.slice(0, 1000))
     return json({ error: err instanceof Error ? err.message : 'Erro inesperado.' }, 500)
   }
 })

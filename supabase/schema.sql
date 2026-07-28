@@ -259,7 +259,12 @@ create policy leads_update on public.leads
 drop policy if exists leads_delete on public.leads;
 create policy leads_delete on public.leads
   for delete to authenticated
-  using (public.get_my_role() = 'admin');
+  using (
+    public.get_my_role() = 'admin'
+    or owner_id = auth.uid()
+    or closer_id = auth.uid()
+    or (owner_id is null and public.get_my_role() in ('sdr', 'social_seller'))
+  );
 
 -- meetings: SELECT aberto para o slot picker enxergar horários ocupados
 -- (detalhes do lead seguem protegidos pela RLS de leads).

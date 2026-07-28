@@ -124,6 +124,20 @@ export function useCreateLead() {
   })
 }
 
+export function useDeleteLead() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (leadId: string) => {
+      // Remove vendas primeiro (não têm cascade); reuniões, eventos e atividades caem por cascade.
+      await supabase.from('sales').delete().eq('lead_id', leadId)
+      const { error } = await supabase.from('leads').delete().eq('id', leadId)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['leads'] }),
+  })
+}
+
 export function useUpdateLead() {
   const queryClient = useQueryClient()
 

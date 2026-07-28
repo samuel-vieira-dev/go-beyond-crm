@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { FormRow, Select, Textarea } from '@/components/ui/Field'
 import { useAuth } from '@/context/AuthContext'
-import { useAddLeadNote, useClaimLead, useLead, useLeadEvents, useUpdateLead } from '@/hooks/useLeads'
+import { useAddLeadNote, useClaimLead, useDeleteLead, useLead, useLeadEvents, useUpdateLead } from '@/hooks/useLeads'
 import { useProfiles } from '@/hooks/useProfiles'
 import { LeadEditModal } from './LeadEditModal'
 import { ActivitiesSection } from './ActivitiesSection'
@@ -34,6 +34,7 @@ export function LeadDetailModal({
 }) {
   const { profile } = useAuth()
   const claimLead = useClaimLead()
+  const deleteLead = useDeleteLead()
   const addNote = useAddLeadNote()
   const updateLead = useUpdateLead()
   const isAdmin = profile?.role === 'admin'
@@ -187,6 +188,23 @@ export function LeadDetailModal({
               </Button>
             )}
             {extraActions}
+            <Button
+              size="sm"
+              variant="danger"
+              className="ml-auto"
+              disabled={deleteLead.isPending}
+              onClick={async () => {
+                if (!confirm(`Excluir o lead "${current.name}"? Esta ação não pode ser desfeita.`)) return
+                try {
+                  await deleteLead.mutateAsync(current.id)
+                  onClose()
+                } catch {
+                  alert('Não foi possível excluir o lead.')
+                }
+              }}
+            >
+              🗑 Excluir lead
+            </Button>
           </div>
         </div>
 
