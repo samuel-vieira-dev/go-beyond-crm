@@ -33,5 +33,6 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { to: '/admin/equipe', label: 'Equipe', icon: '👥' },
     { to: '/admin/produtos', label: 'Produtos', icon: '🏷️' },
     { to: '/admin/metas', label: 'Metas', icon: '🎯' },
+    { to: '/admin/quiz', label: 'Dashboard Quiz', icon: '📉' },
   ],
 }

@@ -46,6 +46,9 @@ const AdminProductsPage = lazy(() =>
   import('@/pages/admin/AdminProductsPage').then((m) => ({ default: m.AdminProductsPage })),
 )
 const AdminGoalsPage = lazy(() => import('@/pages/admin/AdminGoalsPage').then((m) => ({ default: m.AdminGoalsPage })))
+const AdminQuizDashboardPage = lazy(() =>
+  import('@/pages/admin/AdminQuizDashboardPage').then((m) => ({ default: m.AdminQuizDashboardPage })),
+)
 
 const AlertsPage = lazy(() => import('@/pages/AlertsPage').then((m) => ({ default: m.AlertsPage })))
 
@@ -98,6 +101,7 @@ export default function App() {
             <Route path="/admin/equipe" element={<AdminTeamPage />} />
             <Route path="/admin/produtos" element={<AdminProductsPage />} />
             <Route path="/admin/metas" element={<AdminGoalsPage />} />
+            <Route path="/admin/quiz" element={<AdminQuizDashboardPage />} />
           </Route>
         </Route>
 
