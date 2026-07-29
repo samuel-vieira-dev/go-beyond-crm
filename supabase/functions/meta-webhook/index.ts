@@ -89,8 +89,11 @@ Deno.serve(async (req) => {
 
     for (const entry of body?.entry ?? []) {
       for (const m of entry?.messaging ?? []) {
-        if (m?.message?.is_echo !== true) continue // ignora DMs recebidas
-        const person = m?.recipient?.id // no eco, o destinatário é a pessoa abordada
+        // A Meta usa `is_echo` (Messenger/IG via Facebook Login) e `is_self`
+        // (Instagram API com Instagram Login) — aceitamos os dois.
+        const sentByUs = m?.message?.is_echo === true || m?.message?.is_self === true
+        if (!sentByUs) continue // ignora DMs recebidas
+        const person = m?.recipient?.id // quem foi abordado
         if (!person || String(person) === businessId) continue
         contacts.set(String(person), { username: null, via: 'abordagem por DM' })
       }
