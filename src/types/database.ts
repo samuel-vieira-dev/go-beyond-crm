@@ -11,7 +11,7 @@ export interface Profile {
 export interface Lead {
   id: string
   name: string
-  whatsapp: string
+  whatsapp: string | null
   email: string | null
   instagram: string | null
   profession: string | null

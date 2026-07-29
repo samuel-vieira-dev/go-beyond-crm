@@ -32,7 +32,7 @@ export function LeadEditModal({
     if (lead) {
       setForm({
         name: lead.name,
-        whatsapp: lead.whatsapp,
+        whatsapp: lead.whatsapp ?? '',
         email: lead.email ?? '',
         instagram: lead.instagram ?? '',
         profession: lead.profession ?? '',
@@ -54,7 +54,7 @@ export function LeadEditModal({
     await updateLead.mutateAsync({
       id: lead.id,
       name: form.name,
-      whatsapp: form.whatsapp,
+      whatsapp: form.whatsapp || null,
       email: form.email || null,
       instagram: form.instagram || null,
       profession: form.profession || null,
@@ -74,8 +74,8 @@ export function LeadEditModal({
         </FormRow>
 
         <div className="grid grid-cols-2 gap-3">
-          <FormRow label="WhatsApp *">
-            <Input required value={form.whatsapp} onChange={(e) => update('whatsapp', e.target.value)} />
+          <FormRow label="WhatsApp">
+            <Input value={form.whatsapp} onChange={(e) => update('whatsapp', e.target.value)} />
           </FormRow>
           <FormRow label="Email">
             <Input type="email" value={form.email} onChange={(e) => update('email', e.target.value)} />

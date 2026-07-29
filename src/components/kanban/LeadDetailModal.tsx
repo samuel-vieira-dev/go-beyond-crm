@@ -56,7 +56,8 @@ export function LeadDetailModal({
   if (!lead || !current) return null
 
   const canEdit = profile?.role !== undefined
-  const whatsappDigits = current.whatsapp.replace(/\D/g, '')
+  // Leads vindos do Instagram entram sem telefone (captado depois, na conversa).
+  const whatsappDigits = (current.whatsapp ?? '').replace(/\D/g, '')
 
   return (
     <Modal open={!!lead} onClose={onClose} title={current.name} width="lg">
@@ -75,14 +76,18 @@ export function LeadDetailModal({
 
           <dl className="space-y-2 text-sm">
             <Row label="WhatsApp">
-              <a
-                href={`https://wa.me/55${whatsappDigits}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-gold-400 hover:underline"
-              >
-                {current.whatsapp}
-              </a>
+              {whatsappDigits ? (
+                <a
+                  href={`https://wa.me/55${whatsappDigits}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-gold-400 hover:underline"
+                >
+                  {current.whatsapp}
+                </a>
+              ) : (
+                '—'
+              )}
             </Row>
             <Row label="Email">{current.email || '—'}</Row>
             <Row label="Instagram">{current.instagram || '—'}</Row>

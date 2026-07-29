@@ -80,7 +80,7 @@ export function useLead(leadId: string | null) {
 
 export interface CreateLeadInput {
   name: string
-  whatsapp: string
+  whatsapp: string | null
   email?: string | null
   instagram?: string | null
   profession?: string | null
