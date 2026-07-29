@@ -42,6 +42,73 @@ export function useMeetingsForCloser(closerId: string | null, range?: { from: st
   })
 }
 
+/**
+ * Troca o closer responsável pelo lead. Se houver reunião em aberto, ela é
+ * transferida junto (senão continuaria na agenda do closer antigo).
+ */
+export function useReassignCloser() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({ leadId, closerId }: { leadId: string; closerId: string | null }) => {
+      const { error: leadError } = await supabase
+        .from('leads')
+        .update({ closer_id: closerId })
+        .eq('id', leadId)
+      if (leadError) throw leadError
+
+      let movedMeeting = false
+      if (closerId) {
+        const { data: open } = await supabase
+          .from('meetings')
+          .select('id, scheduled_at')
+          .eq('lead_id', leadId)
+          .eq('status', 'agendada')
+          .order('scheduled_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (open) {
+          // Não transfere para um horário em que o novo closer já tem reunião.
+          const { data: conflict } = await supabase
+            .from('meetings')
+            .select('id')
+            .eq('closer_id', closerId)
+            .eq('scheduled_at', open.scheduled_at)
+            .eq('status', 'agendada')
+            .neq('id', open.id)
+            .limit(1)
+          if (conflict && conflict.length > 0) {
+            throw new Error(
+              'O novo closer já tem uma reunião nesse horário. Reagende antes de transferir.',
+            )
+          }
+
+          const { error: meetingError } = await supabase
+            .from('meetings')
+            .update({ closer_id: closerId })
+            .eq('id', open.id)
+          if (meetingError) throw meetingError
+          movedMeeting = true
+        }
+      }
+
+      await supabase.from('lead_events').insert({
+        lead_id: leadId,
+        actor_id: profile?.id ?? null,
+        type: 'note',
+        payload: { note: movedMeeting ? 'Closer alterado (reunião transferida)' : 'Closer alterado' },
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['lead'] })
+      queryClient.invalidateQueries({ queryKey: ['meetings'] })
+    },
+  })
+}
+
 /** Reunião "em aberto" (status agendada) mais recente de um lead — usada pro modal de resultado. */
 export function useActiveMeetingForLead(leadId: string | null) {
   return useQuery({

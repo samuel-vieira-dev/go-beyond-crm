@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { FormRow, Select, Textarea } from '@/components/ui/Field'
 import { useAuth } from '@/context/AuthContext'
-import { useAddLeadNote, useDeleteLead, useLead, useLeadEvents, useUpdateLead } from '@/hooks/useLeads'
+import { useAddLeadNote, useDeleteLead, useLead, useLeadEvents } from '@/hooks/useLeads'
 import { useProfiles } from '@/hooks/useProfiles'
+import { useReassignCloser } from '@/hooks/useMeetings'
 import { LeadEditModal } from './LeadEditModal'
 import { ActivitiesSection } from './ActivitiesSection'
 import { ORIGIN_LABELS, STAGE_LABELS } from '@/types/domain'
@@ -35,8 +36,11 @@ export function LeadDetailModal({
   const { profile } = useAuth()
   const deleteLead = useDeleteLead()
   const addNote = useAddLeadNote()
-  const updateLead = useUpdateLead()
+  const reassignCloser = useReassignCloser()
   const isAdmin = profile?.role === 'admin'
+  // SDR e Social Seller também trocam o closer (ex.: closer indisponível).
+  const canAssignCloser =
+    profile?.role === 'admin' || profile?.role === 'sdr' || profile?.role === 'social_seller'
   const { data: preSalers } = useProfiles(undefined)
   const { data: liveLead } = useLead(lead?.id ?? null)
   const { data: events } = useLeadEvents(lead?.id ?? null)
@@ -91,12 +95,20 @@ export function LeadDetailModal({
             </Row>
           </dl>
 
-          {isAdmin && (
+          {canAssignCloser && (
             <div className="card-surface space-y-2 rounded-lg p-3">
-              <p className="text-xs font-medium text-gold-400 uppercase">Closer (Admin)</p>
+              <p className="text-xs font-medium text-gold-400 uppercase">Closer responsável</p>
               <Select
                 value={current.closer_id ?? ''}
-                onChange={(e) => updateLead.mutate({ id: current.id, closer_id: e.target.value || null })}
+                disabled={reassignCloser.isPending}
+                onChange={async (e) => {
+                  const value = e.target.value || null
+                  try {
+                    await reassignCloser.mutateAsync({ leadId: current.id, closerId: value })
+                  } catch (err) {
+                    alert(err instanceof Error ? err.message : 'Não foi possível trocar o closer.')
+                  }
+                }}
               >
                 <option value="">—</option>
                 {(preSalers ?? [])
@@ -108,7 +120,8 @@ export function LeadDetailModal({
                   ))}
               </Select>
               <p className="text-[11px] text-white/30">
-                A distribuição de leads para SDR é automática (round-robin).
+                Se já houver reunião agendada, ela é transferida para o novo closer.
+                {isAdmin && ' A distribuição de leads para SDR é automática (round-robin).'}
               </p>
             </div>
           )}
