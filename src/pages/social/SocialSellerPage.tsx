@@ -9,6 +9,7 @@ export function SocialSellerPage() {
       columns={SOCIAL_SELLER_COLUMNS}
       defaultOrigin="instagram"
       originOptions={['instagram', 'indicacao', 'manual', 'outro']}
+      showMetaImport
     />
   )
 }
