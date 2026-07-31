@@ -12,6 +12,7 @@ export interface LeadFilters {
   isMql?: boolean
   dateFrom?: string
   dateTo?: string
+  formTag?: string
   ownerId?: string
   closerId?: string
   unassignedOnly?: boolean
@@ -36,6 +37,7 @@ export function useLeads(filters: LeadFilters = {}) {
       if (typeof filters.isMql === 'boolean') q = q.eq('is_mql', filters.isMql)
       if (filters.dateFrom) q = q.gte('created_at', filters.dateFrom)
       if (filters.dateTo) q = q.lte('created_at', filters.dateTo)
+      if (filters.formTag) q = q.eq('form_tag', filters.formTag)
       if (filters.ownerId) q = q.eq('owner_id', filters.ownerId)
       if (filters.closerId) q = q.eq('closer_id', filters.closerId)
       if (filters.unassignedOnly) q = q.is('owner_id', null)

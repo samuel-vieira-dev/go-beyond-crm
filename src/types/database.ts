@@ -23,6 +23,8 @@ export interface Lead {
   closer_id: string | null
   quiz_answers: Record<string, unknown> | null
   utm: Record<string, unknown> | null
+  form_tag: string | null
+  approach_type: string | null
   lost_reason: string | null
   notes: string | null
   created_at: string

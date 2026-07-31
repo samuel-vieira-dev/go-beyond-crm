@@ -45,6 +45,7 @@ export function LeadCard({
 
       <div className="flex flex-wrap gap-1">
         <Badge tone="neutral">{entryChannel(lead.origin)}</Badge>
+        {lead.form_tag && <Badge tone="blue">{lead.form_tag}</Badge>}
         {/* mostra a etapa real quando o card está fora da sua coluna nominal (handed-off) */}
         {!draggable && (
           <Badge tone={accent === 'green' ? 'green' : accent === 'red' ? 'red' : 'neutral'}>

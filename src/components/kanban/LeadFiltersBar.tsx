@@ -32,6 +32,7 @@ export function LeadFiltersBar({
 
   const activeCount =
     (filters.origin ? 1 : 0) +
+    (filters.formTag ? 1 : 0) +
     (filters.isMql !== undefined && !hideQualification ? 1 : 0) +
     (filters.dateFrom || filters.dateTo ? 1 : 0)
 
@@ -54,7 +55,7 @@ export function LeadFiltersBar({
 
   function clearAll() {
     setDatePreset('all')
-    onChange({ ...filters, search: '', origin: undefined, isMql: undefined, dateFrom: undefined, dateTo: undefined })
+    onChange({ ...filters, search: '', origin: undefined, formTag: undefined, isMql: undefined, dateFrom: undefined, dateTo: undefined })
   }
 
   return (
@@ -95,6 +96,19 @@ export function LeadFiltersBar({
       {/* Painel expandido */}
       {open && (
         <div className="mt-4 grid grid-cols-1 gap-4 border-t border-white/10 pt-4 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <Label>Formulário</Label>
+            <Select
+              value={filters.formTag ?? ''}
+              onChange={(e) => onChange({ ...filters, formTag: e.target.value || undefined })}
+            >
+              <option value="">Todos os formulários</option>
+              <option value="Formulário - Alunos">Formulário - Alunos</option>
+              <option value="Tráfego">Tráfego</option>
+              <option value="Organico">Organico</option>
+            </Select>
+          </div>
+
           <div>
             <Label>Origem do lead</Label>
             <Select
