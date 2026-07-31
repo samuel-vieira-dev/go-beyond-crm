@@ -141,14 +141,17 @@ export const SDR_COLUMNS: BoardColumn[] = [
   { id: 'reuniao_nao_realizada', title: 'Reunião Não Realizada', stages: ['reuniao_nao_realizada'] },
 ]
 
+/** A social seller trabalha Ativações e Conversas no Business Suite — no kanban
+ *  entram só os leads que já receberam oferta de reunião. */
 export const SOCIAL_SELLER_COLUMNS: BoardColumn[] = [
-  { id: 'novo_lead', title: 'Ativações', stages: ['novo_lead'] },
-  { id: 'em_qualificacao', title: 'Conversas em condução', stages: ['em_qualificacao'] },
-  { id: 'oferta_reuniao', title: 'Ofertas de Reunião', stages: ['oferta_reuniao'] },
+  { id: 'oferta_reuniao', title: 'Ofertas de Reunião', stages: ['oferta_reuniao', 'novo_lead', 'em_qualificacao'] },
   { id: 'follow_up_prevenda', title: 'Follow-up', stages: ['follow_up_prevenda'] },
   { id: 'agendado', title: 'Agendamento', stages: AGENDAMENTO_STAGES },
   { id: 'reuniao_nao_realizada', title: 'No-Show', stages: ['reuniao_nao_realizada'] },
 ]
+
+/** Canais de venda (tag do lead) — usados no funil e no filtro por canal. */
+export const CHANNEL_TAGS = ['Tráfego', 'Organico', 'Formulário - Alunos', 'Social Selling'] as const
 
 export type StageAccent = 'green' | 'red' | 'none'
 

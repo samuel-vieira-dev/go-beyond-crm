@@ -3,18 +3,24 @@ import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { FormRow, Input, Select, Textarea } from '@/components/ui/Field'
 import { useCreateLead } from '@/hooks/useLeads'
-import { INCOME_RANGES, ORIGIN_LABELS, type LeadOrigin } from '@/types/domain'
+import { INCOME_RANGES, ORIGIN_LABELS, type LeadOrigin, type LeadStage } from '@/types/domain'
 
 export function LeadFormModal({
   open,
   onClose,
   defaultOrigin,
   originOptions,
+  stage,
+  formTag,
 }: {
   open: boolean
   onClose: () => void
   defaultOrigin: LeadOrigin
   originOptions: LeadOrigin[]
+  /** Etapa em que o lead nasce (default: Novo Lead). */
+  stage?: LeadStage
+  /** Tag de canal (ex.: Social Selling) aplicada no cadastro manual. */
+  formTag?: string
 }) {
   const createLead = useCreateLead()
   const [form, setForm] = useState({
@@ -44,7 +50,9 @@ export function LeadFormModal({
       origin: form.origin,
       is_mql: form.income_range === '8a10' || form.income_range === 'acima10',
       notes: form.notes || null,
-    })
+      stage,
+      form_tag: formTag,
+    } as never)
     setForm({
       name: '',
       whatsapp: '',

@@ -22,7 +22,7 @@ export function AdminPresalesRankingPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white">Ranking de Pré-vendas</h1>
+          <h1 className="text-xl font-semibold text-white">Performance Pré-vendas</h1>
           <p className="text-sm text-white/40">SDRs e Social Sellers — agendamentos e comparecimento</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

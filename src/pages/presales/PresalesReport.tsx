@@ -10,7 +10,16 @@ import { RefreshButton } from '@/components/ui/RefreshButton'
 import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import { STAGE_LABELS, type BoardColumn } from '@/types/domain'
 
-export function PresalesReport({ title, columns }: { title: string; columns: BoardColumn[] }) {
+export function PresalesReport({
+  title,
+  columns,
+  socialPanel,
+}: {
+  title: string
+  columns: BoardColumn[]
+  /** Painel de lançamento manual (só Social Seller). */
+  socialPanel?: (range: DateRange) => React.ReactNode
+}) {
   const { profile } = useAuth()
   const [range, setRange] = useState<DateRange>({
     from: startOfDay(new Date()).toISOString(),
@@ -30,6 +39,8 @@ export function PresalesReport({ title, columns }: { title: string; columns: Boa
           <RefreshButton onClick={() => refetch()} loading={isFetching} />
         </div>
       </div>
+
+      {socialPanel?.(range)}
 
       {isLoading || !data ? (
         <p className="text-sm text-white/40">Carregando relatório...</p>

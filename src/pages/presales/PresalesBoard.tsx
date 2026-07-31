@@ -5,7 +5,6 @@ import { LeadFormModal } from '@/components/kanban/LeadFormModal'
 import { LeadDetailModal } from '@/components/kanban/LeadDetailModal'
 import { ScheduleMeetingModal } from '@/components/kanban/ScheduleMeetingModal'
 import { RescheduleMeetingModal } from '@/components/kanban/RescheduleMeetingModal'
-import { ImportMetaLeadsModal } from '@/components/kanban/ImportMetaLeadsModal'
 import { Button } from '@/components/ui/Button'
 import { useChangeLeadStage, useLeads, type LeadFilters } from '@/hooks/useLeads'
 import { HANDED_OFF_STAGES, type BoardColumn, type LeadOrigin, type LeadStage } from '@/types/domain'
@@ -17,15 +16,18 @@ export function PresalesBoard({
   columns,
   defaultOrigin,
   originOptions,
-  showMetaImport,
+  newLeadStage,
+  newLeadFormTag,
 }: {
   title: string
   subtitle: string
   columns: BoardColumn[]
   defaultOrigin: LeadOrigin
   originOptions: LeadOrigin[]
-  /** Botão de importar o CSV da Central de Leads da Meta (Social Seller). */
-  showMetaImport?: boolean
+  /** Etapa em que o lead cadastrado nasce (default: Novo Lead). */
+  newLeadStage?: LeadStage
+  /** Tag de canal aplicada ao lead cadastrado manualmente. */
+  newLeadFormTag?: string
 }) {
   const boardStages = useMemo(
     () => Array.from(new Set(columns.flatMap((c) => c.stages))),
@@ -34,7 +36,6 @@ export function PresalesBoard({
 
   const [filters, setFilters] = useState<LeadFilters>({ stages: boardStages })
   const [formOpen, setFormOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
   const [selectedLead, setSelectedLead] = useState<LeadWithRelations | null>(null)
   const [schedulingLead, setSchedulingLead] = useState<LeadWithRelations | null>(null)
   const [rescheduleLead, setRescheduleLead] = useState<LeadWithRelations | null>(null)
@@ -75,14 +76,7 @@ export function PresalesBoard({
           <h1 className="text-xl font-semibold text-white">{title}</h1>
           <p className="text-sm text-white/40">{subtitle}</p>
         </div>
-        <div className="flex gap-2">
-          {showMetaImport && (
-            <Button variant="secondary" onClick={() => setImportOpen(true)}>
-              📄 Importar da Meta
-            </Button>
-          )}
-          <Button onClick={() => setFormOpen(true)}>+ Cadastrar Lead</Button>
-        </div>
+        <Button onClick={() => setFormOpen(true)}>+ Cadastrar Lead</Button>
       </div>
 
       <LeadFiltersBar
@@ -109,6 +103,8 @@ export function PresalesBoard({
         onClose={() => setFormOpen(false)}
         defaultOrigin={defaultOrigin}
         originOptions={originOptions}
+        stage={newLeadStage}
+        formTag={newLeadFormTag}
       />
 
       <LeadDetailModal
@@ -121,7 +117,6 @@ export function PresalesBoard({
 
       <RescheduleMeetingModal lead={rescheduleLead} onClose={() => setRescheduleLead(null)} />
 
-      <ImportMetaLeadsModal open={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   )
 }

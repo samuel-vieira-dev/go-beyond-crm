@@ -32,7 +32,7 @@ export function AdminCloserRankingPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white">Ranking de Closers</h1>
+          <h1 className="text-xl font-semibold text-white">Performance dos Closers</h1>
           <p className="text-sm text-white/40">Vendas, faturamento e projeção da equipe</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

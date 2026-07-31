@@ -5,11 +5,12 @@ export function SocialSellerPage() {
   return (
     <PresalesBoard
       title="Leads — Social Seller"
-      subtitle="Prospecção via Instagram até o agendamento com o Closer"
+      subtitle="Leads com oferta de reunião até o agendamento com o Closer"
       columns={SOCIAL_SELLER_COLUMNS}
       defaultOrigin="instagram"
       originOptions={['instagram', 'indicacao', 'manual', 'outro']}
-      showMetaImport
+      newLeadStage="oferta_reuniao"
+      newLeadFormTag="Social Selling"
     />
   )
 }
