@@ -26,7 +26,8 @@ function json(body: unknown, status = 200) {
   })
 }
 
-async function hmacHex(raw: string, secret: string) {
+/** Assinatura HMAC SHA256 do corpo, em hex e em base64. */
+async function hmacBoth(raw: string, secret: string) {
   const key = await crypto.subtle.importKey(
     'raw',
     new TextEncoder().encode(secret),
@@ -34,10 +35,12 @@ async function hmacHex(raw: string, secret: string) {
     false,
     ['sign'],
   )
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(raw))
-  return Array.from(new Uint8Array(sig))
+  const buf = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(raw)))
+  const hex = Array.from(buf)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
+  const b64 = btoa(String.fromCharCode(...buf))
+  return { hex, b64 }
 }
 
 /** Remove HTML e espaços — os títulos vêm com tags às vezes. */
@@ -81,21 +84,28 @@ Deno.serve(async (req) => {
   const secret = Deno.env.get('YAY_INTAKE_SECRET')
 
   if (secret) {
-    const headerSecret = req.headers.get('x-webhook-secret')
-    let ok = headerSecret === secret
-    if (!ok) {
-      const provided =
-        req.headers.get('x-signature') ??
-        req.headers.get('x-yay-signature') ??
-        req.headers.get('x-hub-signature-256') ??
-        ''
-      if (provided) {
-        const expected = await hmacHex(raw, secret)
-        ok = provided.replace(/^sha256=/, '').toLowerCase() === expected
+    const { hex, b64 } = await hmacBoth(raw, secret)
+    let ok = false
+    const received: string[] = []
+
+    // O Yay! Forms não documenta o nome do cabeçalho da assinatura, então
+    // aceitamos QUALQUER cabeçalho cujo valor seja o segredo em texto puro ou
+    // o HMAC SHA256 do corpo (hex ou base64, com ou sem prefixo "sha256=").
+    for (const [name, value] of req.headers) {
+      if (['authorization', 'cookie', 'apikey'].includes(name)) continue
+      received.push(name)
+      const v = value.trim()
+      const bare = v.replace(/^(sha256|hmac-sha256)[=\s]/i, '').trim()
+      if (v === secret || bare === secret || bare.toLowerCase() === hex || bare === b64) {
+        ok = true
+        break
       }
     }
+
     if (!ok) {
-      console.warn('[yay-intake] 401 — segredo/assinatura não conferem')
+      console.warn(
+        `[yay-intake] 401 — nenhuma assinatura válida. Cabeçalhos recebidos: ${received.join(', ')}`,
+      )
       return json({ error: 'Não autorizado.' }, 401)
     }
   }
