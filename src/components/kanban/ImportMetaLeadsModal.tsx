@@ -17,7 +17,7 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
   const [fileName, setFileName] = useState('')
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<{ created: number; skipped: number } | null>(null)
-  const [dupe, setDupe] = useState<{ keys: Set<string>; names: Set<string> } | null>(null)
+  const [dupe, setDupe] = useState<{ keys: Set<string>; instas: Set<string> } | null>(null)
   const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -47,20 +47,20 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
     setDupe(null)
     try {
       const keys = new Set<string>()
-      const names = new Set<string>()
+      const instas = new Set<string>()
       for (let i = 0; i < parsed.length; i += 300) {
         const chunk = parsed.slice(i, i + 300)
         const { data, error: rpcErr } = await supabase.rpc('check_existing_leads', {
           p_keys: chunk.map((r) => r.metaKey),
-          p_names: chunk.map((r) => r.name),
+          p_instagrams: chunk.map((r) => r.instagram ?? ''),
         })
         if (rpcErr) throw rpcErr
         for (const row of (data ?? []) as { kind: string; value: string }[]) {
           if (row.kind === 'key') keys.add(row.value)
-          else names.add(row.value)
+          else instas.add(row.value)
         }
       }
-      setDupe({ keys, names })
+      setDupe({ keys, instas })
     } catch {
       setError('Não foi possível verificar duplicatas. Importe com cuidado.')
     } finally {
@@ -68,8 +68,13 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
     }
   }
 
-  const isDuplicate = (r: ParsedMetaLead) =>
-    !!dupe && (dupe.keys.has(r.metaKey) || dupe.names.has(r.name.toLowerCase()))
+  // Duplicata = mesmo @ do Instagram (identidade real) ou mesma resposta já importada.
+  const isDuplicate = (r: ParsedMetaLead) => {
+    if (!dupe) return false
+    if (dupe.keys.has(r.metaKey)) return true
+    const handle = r.instagram?.replace(/^@+/, '').toLowerCase()
+    return !!handle && dupe.instas.has(handle)
+  }
 
   // Resumo do que será importado
   const summary = useMemo(() => {
@@ -100,6 +105,7 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
         origin: 'instagram' as const,
         is_mql: false,
         stage: r.stage,
+        instagram: r.instagram,
         approach_type: r.approachType,
         meta_lead_key: r.metaKey,
         notes: r.labels.length ? `Rótulos da Meta: ${r.labels.join(', ')}` : null,

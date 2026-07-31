@@ -38,6 +38,7 @@ export interface ParsedMetaLead {
   createdAt: string | null
   stage: LeadStage
   stageRaw: string
+  instagram: string | null
   ownerName: string | null
   approachType: string | null
   labels: string[]
@@ -92,6 +93,10 @@ export function parseMetaLeadsCsv(text: string, sellerNames: string[] = []): Par
   const iStage = col('estágio') >= 0 ? col('estágio') : col('estagio')
   const iOwner = col('propriet')
   const iLabels = col('rótulo') >= 0 ? col('rótulo') : col('rotulo')
+  // A Central de Leads pode exportar o @ em colunas com nomes variados.
+  const iInsta = [
+    'instagram', 'usuário do instagram', 'usuario do instagram', 'username', 'usuário', 'usuario', '@',
+  ].map(col).find((i) => i >= 0) ?? -1
 
   const sellersLower = sellerNames.map((n) => ({ raw: n, low: n.toLowerCase() }))
   const out: ParsedMetaLead[] = []
@@ -133,12 +138,16 @@ export function parseMetaLeadsCsv(text: string, sellerNames: string[] = []): Par
       }
     }
 
+    // @ do Instagram — é ele que identifica a pessoa (nome de exibição repete).
+    const instaRaw = (iInsta >= 0 ? cells[iInsta] ?? '' : '').trim()
+    const instagram = instaRaw ? `@${instaRaw.replace(/^@+/, '').toLowerCase()}` : null
+
     // Dedupe: mesmo lead reimportado tem sempre o mesmo nome + data de criação.
     const metaKey = `${name}|${createdRaw}`.slice(0, 300)
     if (seen.has(metaKey)) continue
     seen.add(metaKey)
 
-    out.push({ name, createdAt, stage, stageRaw, ownerName, approachType, labels, metaKey })
+    out.push({ name, createdAt, stage, stageRaw, instagram, ownerName, approachType, labels, metaKey })
   }
 
   return out
