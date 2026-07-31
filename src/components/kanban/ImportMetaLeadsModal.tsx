@@ -17,6 +17,8 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
   const [fileName, setFileName] = useState('')
   const [importing, setImporting] = useState(false)
   const [result, setResult] = useState<{ created: number; skipped: number } | null>(null)
+  const [dupe, setDupe] = useState<{ keys: Set<string>; names: Set<string> } | null>(null)
+  const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const sellerNames = useMemo(() => (sellers ?? []).map((s) => s.full_name), [sellers])
@@ -31,12 +33,43 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
         const parsed = parseMetaLeadsCsv(String(reader.result ?? ''), sellerNames)
         if (parsed.length === 0) setError('Nenhum lead encontrado no arquivo. Confira se é o CSV da Central de Leads.')
         setRows(parsed)
+        void checkDuplicates(parsed)
       } catch {
         setError('Não foi possível ler o arquivo.')
       }
     }
     reader.readAsText(file, 'utf-8')
   }
+
+  /** Consulta na base inteira o que já existe (a RLS esconderia leads de outras pessoas). */
+  async function checkDuplicates(parsed: ParsedMetaLead[]) {
+    setChecking(true)
+    setDupe(null)
+    try {
+      const keys = new Set<string>()
+      const names = new Set<string>()
+      for (let i = 0; i < parsed.length; i += 300) {
+        const chunk = parsed.slice(i, i + 300)
+        const { data, error: rpcErr } = await supabase.rpc('check_existing_leads', {
+          p_keys: chunk.map((r) => r.metaKey),
+          p_names: chunk.map((r) => r.name),
+        })
+        if (rpcErr) throw rpcErr
+        for (const row of (data ?? []) as { kind: string; value: string }[]) {
+          if (row.kind === 'key') keys.add(row.value)
+          else names.add(row.value)
+        }
+      }
+      setDupe({ keys, names })
+    } catch {
+      setError('Não foi possível verificar duplicatas. Importe com cuidado.')
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  const isDuplicate = (r: ParsedMetaLead) =>
+    !!dupe && (dupe.keys.has(r.metaKey) || dupe.names.has(r.name.toLowerCase()))
 
   // Resumo do que será importado
   const summary = useMemo(() => {
@@ -49,27 +82,17 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
       byApproach.set(a, (byApproach.get(a) ?? 0) + 1)
       if (!r.ownerName) semResponsavel++
     }
-    return { byStage: [...byStage], byApproach: [...byApproach], semResponsavel }
-  }, [rows])
+    const duplicados = rows.filter(isDuplicate).length
+    return { byStage: [...byStage], byApproach: [...byApproach], semResponsavel, duplicados }
+  }, [rows, dupe])
 
   async function handleImport() {
     if (rows.length === 0) return
     setImporting(true)
     setError(null)
     try {
-      // Quais já foram importados antes (dedupe pela chave da Meta).
-      const keys = rows.map((r) => r.metaKey)
-      const existing = new Set<string>()
-      for (let i = 0; i < keys.length; i += 200) {
-        const { data } = await supabase
-          .from('leads')
-          .select('meta_lead_key')
-          .in('meta_lead_key', keys.slice(i, i + 200))
-        for (const d of data ?? []) if (d.meta_lead_key) existing.add(d.meta_lead_key)
-      }
-
       const byName = new Map((sellers ?? []).map((s) => [s.full_name.toLowerCase(), s.id]))
-      const novos = rows.filter((r) => !existing.has(r.metaKey))
+      const novos = rows.filter((r) => !isDuplicate(r))
 
       const payload = novos.map((r) => ({
         name: r.name,
@@ -148,11 +171,24 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
 
         {rows.length > 0 && (
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-white">{rows.length} leads no arquivo</p>
-              {summary.semResponsavel > 0 && (
-                <Badge tone="red">{summary.semResponsavel} sem responsável</Badge>
-              )}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-white">
+                {rows.length} leads no arquivo
+                {checking && <span className="ml-2 text-xs text-white/40">verificando duplicatas...</span>}
+                {!checking && dupe && (
+                  <span className="ml-2 text-xs text-success">
+                    · {rows.length - summary.duplicados} novos serão importados
+                  </span>
+                )}
+              </p>
+              <div className="flex gap-1">
+                {summary.duplicados > 0 && (
+                  <Badge tone="neutral">{summary.duplicados} já existem (serão ignorados)</Badge>
+                )}
+                {summary.semResponsavel > 0 && (
+                  <Badge tone="red">{summary.semResponsavel} sem responsável</Badge>
+                )}
+              </div>
             </div>
 
             <div>
@@ -196,8 +232,14 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
                 </thead>
                 <tbody>
                   {rows.slice(0, 60).map((r) => (
-                    <tr key={r.metaKey} className="border-t border-white/5">
-                      <td className="max-w-40 truncate px-2 py-1.5 text-white">{r.name}</td>
+                    <tr
+                      key={r.metaKey}
+                      className={isDuplicate(r) ? 'border-t border-white/5 opacity-40' : 'border-t border-white/5'}
+                    >
+                      <td className="max-w-40 truncate px-2 py-1.5 text-white">
+                        {isDuplicate(r) && <span title="Já existe na plataforma">🔁 </span>}
+                        {r.name}
+                      </td>
                       <td className="px-2 py-1.5 text-white/60">{STAGE_LABELS[r.stage]}</td>
                       <td className="px-2 py-1.5 text-white/60">{r.approachType ?? '—'}</td>
                       <td className="px-2 py-1.5 text-white/60">{r.ownerName ?? '—'}</td>
@@ -213,8 +255,17 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
           <Button variant="ghost" onClick={close}>
             Fechar
           </Button>
-          <Button onClick={handleImport} disabled={rows.length === 0 || importing}>
-            {importing ? 'Importando...' : `Importar ${rows.length || ''} leads`}
+          <Button
+            onClick={handleImport}
+            disabled={rows.length === 0 || importing || checking || rows.length === summary.duplicados}
+          >
+            {importing
+              ? 'Importando...'
+              : checking
+                ? 'Verificando...'
+                : rows.length && rows.length === summary.duplicados
+                  ? 'Todos já existem'
+                  : `Importar ${rows.length - summary.duplicados || ''} leads`}
           </Button>
         </div>
       </div>
