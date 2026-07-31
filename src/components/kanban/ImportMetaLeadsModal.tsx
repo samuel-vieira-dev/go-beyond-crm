@@ -42,14 +42,14 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
   const summary = useMemo(() => {
     const byStage = new Map<string, number>()
     const byApproach = new Map<string, number>()
-    let semDona = 0
+    let semResponsavel = 0
     for (const r of rows) {
       byStage.set(r.stage, (byStage.get(r.stage) ?? 0) + 1)
       const a = r.approachType ?? 'sem tipo'
       byApproach.set(a, (byApproach.get(a) ?? 0) + 1)
-      if (!r.ownerName) semDona++
+      if (!r.ownerName) semResponsavel++
     }
-    return { byStage: [...byStage], byApproach: [...byApproach], semDona }
+    return { byStage: [...byStage], byApproach: [...byApproach], semResponsavel }
   }, [rows])
 
   async function handleImport() {
@@ -87,12 +87,12 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
 
       let created = 0
       for (let i = 0; i < payload.length; i += 100) {
-        const { data, error: insErr } = await supabase
-          .from('leads')
-          .insert(payload.slice(i, i + 100))
-          .select('id')
+        const slice = payload.slice(i, i + 100)
+        // Sem .select(): a RLS de leitura bloquearia os leads atribuídos a outras
+        // pessoas, o que fazia o insert retornar 403.
+        const { error: insErr } = await supabase.from('leads').insert(slice)
         if (insErr) throw insErr
-        created += data?.length ?? 0
+        created += slice.length
       }
 
       setResult({ created, skipped: rows.length - novos.length })
@@ -150,8 +150,8 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-white">{rows.length} leads no arquivo</p>
-              {summary.semDona > 0 && (
-                <Badge tone="red">{summary.semDona} sem dona identificada</Badge>
+              {summary.semResponsavel > 0 && (
+                <Badge tone="red">{summary.semResponsavel} sem responsável</Badge>
               )}
             </div>
 
@@ -177,10 +177,10 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
               </div>
             </div>
 
-            {summary.semDona > 0 && (
+            {summary.semResponsavel > 0 && (
               <p className="text-xs text-white/40">
-                Leads sem dona (Proprietário "Unassigned" e sem rótulo com nome cadastrado) ficam com
-                você.
+                Leads sem responsável (Proprietário "Unassigned" e sem rótulo com nome cadastrado)
+                ficam com você.
               </p>
             )}
 
@@ -191,7 +191,7 @@ export function ImportMetaLeadsModal({ open, onClose }: { open: boolean; onClose
                     <th className="px-2 py-1.5">Nome</th>
                     <th className="px-2 py-1.5">Etapa</th>
                     <th className="px-2 py-1.5">Abordagem</th>
-                    <th className="px-2 py-1.5">Dona</th>
+                    <th className="px-2 py-1.5">Responsável</th>
                   </tr>
                 </thead>
                 <tbody>

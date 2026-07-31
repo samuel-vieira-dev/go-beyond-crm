@@ -150,13 +150,6 @@ export const SOCIAL_SELLER_COLUMNS: BoardColumn[] = [
   { id: 'reuniao_nao_realizada', title: 'No-Show', stages: ['reuniao_nao_realizada'] },
 ]
 
-/** Canal de entrada exibido como tag no card: Clint (funil automatizado via WhatsApp)
- *  ou Manual (cadastrado à mão por um pré-vendedor). A origem detalhada continua
- *  disponível no detalhe do lead e nos filtros. */
-export function entryChannel(origin: LeadOrigin): 'Manual' | 'Clint' {
-  return origin === 'clint' || origin === 'quiz' ? 'Clint' : 'Manual'
-}
-
 export type StageAccent = 'green' | 'red' | 'none'
 
 /** Cor de destaque do card por etapa (verde = agendado/vendido, vermelho = perdido/no-show). */

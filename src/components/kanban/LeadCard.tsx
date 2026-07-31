@@ -2,7 +2,7 @@ import { useDraggable } from '@dnd-kit/core'
 import { format, formatDistanceToNow, isPast, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import type { LeadWithRelations } from '@/types/database'
-import { ACTIVITY_TYPE_ICONS, entryChannel, STAGE_LABELS, stageAccent } from '@/types/domain'
+import { ACTIVITY_TYPE_ICONS, STAGE_LABELS, stageAccent } from '@/types/domain'
 import { Badge } from '@/components/ui/Badge'
 import { useActivityReminders } from '@/context/ActivityRemindersContext'
 import { cn } from '@/lib/cn'
@@ -44,7 +44,6 @@ export function LeadCard({
       </div>
 
       <div className="flex flex-wrap gap-1">
-        <Badge tone="neutral">{entryChannel(lead.origin)}</Badge>
         {lead.form_tag && <Badge tone="blue">{lead.form_tag}</Badge>}
         {/* mostra a etapa real quando o card está fora da sua coluna nominal (handed-off) */}
         {!draggable && (
