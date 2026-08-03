@@ -5,6 +5,7 @@ import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import { RefreshButton } from '@/components/ui/RefreshButton'
 import { FunnelChart } from '@/components/charts/FunnelChart'
 import { useFunnelMetrics, type DateRange } from '@/hooks/useFunnelMetrics'
+import { useChannelSales } from '@/hooks/useChannelSales'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -14,6 +15,7 @@ export function AdminDashboardPage() {
     to: new Date().toISOString(),
   })
   const { data, isLoading, isFetching, refetch } = useFunnelMetrics(range)
+  const { data: channels } = useChannelSales(range)
 
   return (
     <div className="space-y-6">
@@ -48,6 +50,8 @@ export function AdminDashboardPage() {
             />
           </div>
 
+          <ChannelSection rows={channels ?? []} />
+
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard label="Faturamento" value={currency.format(data.revenue)} accent />
             <StatCard
@@ -63,6 +67,40 @@ export function AdminDashboardPage() {
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+/** Vendas por canal — mostra de onde vem o faturamento. */
+function ChannelSection({ rows }: { rows: { channel: string; leads: number; vendas: number; receita: number }[] }) {
+  const total = rows.reduce((s, r) => s + r.receita, 0)
+  if (rows.every((r) => r.leads === 0 && r.vendas === 0)) return null
+
+  return (
+    <div className="card-surface rounded-2xl p-5">
+      <h2 className="mb-4 text-sm font-semibold text-white/70">Vendas por canal</h2>
+      <div className="space-y-3">
+        {rows.map((r) => (
+          <div key={r.channel}>
+            <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+              <span className="text-white">{r.channel}</span>
+              <span className="text-white/40">
+                {r.leads} leads · <span className="text-white">{r.vendas}</span> vendas ·{' '}
+                <span className="font-semibold text-gold-400">{currency.format(r.receita)}</span>
+              </span>
+            </div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-gold-500"
+                style={{ width: `${total > 0 ? (r.receita / total) * 100 : 0}%` }}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-3 border-t border-white/10 pt-3 text-xs text-white/40">
+        Total no período: <span className="font-semibold text-white">{currency.format(total)}</span>
+      </p>
     </div>
   )
 }

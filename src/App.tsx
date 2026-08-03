@@ -51,6 +51,7 @@ const AdminQuizDashboardPage = lazy(() =>
 )
 
 const AlertsPage = lazy(() => import('@/pages/AlertsPage').then((m) => ({ default: m.AlertsPage })))
+const MyGoalsPage = lazy(() => import('@/pages/MyGoalsPage').then((m) => ({ default: m.MyGoalsPage })))
 
 function RootRedirect() {
   const { session, profile, loading } = useAuth()
@@ -70,6 +71,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/sdr" element={<SdrPage />} />
             <Route path="/sdr/alertas" element={<AlertsPage />} />
+            <Route path="/sdr/metas" element={<MyGoalsPage />} />
             <Route path="/sdr/relatorio" element={<SdrReportPage />} />
           </Route>
         </Route>
@@ -78,6 +80,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route path="/social" element={<SocialSellerPage />} />
             <Route path="/social/alertas" element={<AlertsPage />} />
+            <Route path="/social/metas" element={<MyGoalsPage />} />
             <Route path="/social/relatorio" element={<SocialSellerReportPage />} />
           </Route>
         </Route>
@@ -87,6 +90,7 @@ export default function App() {
             <Route path="/closer" element={<CloserAgendaPage />} />
             <Route path="/closer/leads" element={<CloserLeadsPage />} />
             <Route path="/closer/alertas" element={<AlertsPage />} />
+            <Route path="/closer/metas" element={<MyGoalsPage />} />
             <Route path="/closer/relatorio" element={<CloserReportPage />} />
           </Route>
         </Route>

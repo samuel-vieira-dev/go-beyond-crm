@@ -11,17 +11,20 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   sdr: [
     { to: '/sdr', label: 'Leads', icon: '📋', end: true },
     { to: '/sdr/alertas', label: 'Alertas', icon: '🔔' },
+    { to: '/sdr/metas', label: 'Minhas Metas', icon: '🎯' },
     { to: '/sdr/relatorio', label: 'Relatório do dia', icon: '📊' },
   ],
   social_seller: [
     { to: '/social', label: 'Leads', icon: '📋', end: true },
     { to: '/social/alertas', label: 'Alertas', icon: '🔔' },
+    { to: '/social/metas', label: 'Minhas Metas', icon: '🎯' },
     { to: '/social/relatorio', label: 'Relatório do dia', icon: '📊' },
   ],
   closer: [
     { to: '/closer', label: 'Agenda', icon: '🗓️', end: true },
     { to: '/closer/leads', label: 'Leads', icon: '📋' },
     { to: '/closer/alertas', label: 'Alertas', icon: '🔔' },
+    { to: '/closer/metas', label: 'Minhas Metas', icon: '🎯' },
     { to: '/closer/relatorio', label: 'Relatório do dia', icon: '📊' },
   ],
   admin: [
