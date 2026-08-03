@@ -2,8 +2,9 @@ import { useMemo, useState } from 'react'
 import { startOfDay, subDays } from 'date-fns'
 import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import { RefreshButton } from '@/components/ui/RefreshButton'
+import { Button } from '@/components/ui/Button'
 import { StatCard } from '@/components/ui/StatCard'
-import { useQuizAnalytics } from '@/hooks/useQuizAnalytics'
+import { downloadQuizLeadsCsv, useQuizAnalytics, useQuizLeads } from '@/hooks/useQuizAnalytics'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
 import { cn } from '@/lib/cn'
 
@@ -23,12 +24,36 @@ const SCREENS: { id: string; label: string }[] = [
   { id: 'checkout', label: '➜ Clique no Checkout' },
 ]
 
-export function AdminQuizDashboardPage() {
+/** Telas do quiz pós-venda (1–8, 9a MQL e 9b não-MQL). */
+const POS_VENDA_SCREENS: { id: string; label: string }[] = [
+  { id: '1', label: '1 · Boas-vindas' },
+  { id: '2', label: '2 · Urgência' },
+  { id: '3', label: '3 · Conteúdo' },
+  { id: '4', label: '4 · Motivação' },
+  { id: '5', label: '5 · Obstáculo' },
+  { id: '6', label: '6 · Copy motivação' },
+  { id: '7', label: '7 · Renda' },
+  { id: '8', label: '8 · Carregando' },
+  { id: '9a', label: '9a · VSL Go Beyond (MQL)' },
+  { id: '9b', label: '9b · VSL Speak-up' },
+  { id: 'checkout', label: '➜ Clique no Checkout' },
+]
+
+const QUIZZES = {
+  'link-bio': { title: 'Quiz Link da Bio', screens: SCREENS, resultIds: ['10a', '10b'] },
+  'pos-venda': { title: 'Quiz Pós-venda', screens: POS_VENDA_SCREENS, resultIds: ['9a', '9b'] },
+} as const
+
+export type QuizId = keyof typeof QUIZZES
+
+export function AdminQuizDashboardPage({ quiz = 'link-bio' }: { quiz?: QuizId }) {
+  const config = QUIZZES[quiz]
   const [range, setRange] = useState<DateRange>({
     from: startOfDay(subDays(new Date(), 29)).toISOString(),
     to: new Date().toISOString(),
   })
-  const { data, isLoading, isFetching, refetch } = useQuizAnalytics(range)
+  const { data, isLoading } = useQuizAnalytics(range, quiz)
+  const { data: leads } = useQuizLeads(range, quiz)
 
   const byScreen = useMemo(() => {
     const map = new Map<string, { views: number; clicks: number }>()
@@ -37,20 +62,29 @@ export function AdminQuizDashboardPage() {
   }, [data])
 
   const firstViews = byScreen.get('1')?.views ?? 0
-  const captureViews = byScreen.get('9')?.views ?? 0
+  const captureViews = byScreen.get(quiz === 'link-bio' ? '9' : '8')?.views ?? 0
   const checkoutClicks = byScreen.get('checkout')?.clicks ?? 0
-  const totalLeads = (byScreen.get('10a')?.views ?? 0) + (byScreen.get('10b')?.views ?? 0)
+  const totalLeads = config.resultIds.reduce((sum, id) => sum + (byScreen.get(id)?.views ?? 0), 0)
 
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-white">Dashboard do Quiz (Link da Bio)</h1>
+          <h1 className="text-xl font-semibold text-white">Dashboard — {config.title}</h1>
           <p className="text-sm text-white/40">Views e cliques por tela · funil de conversão</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DateRangePicker value={range} onChange={setRange} />
-          <RefreshButton onClick={() => refetch()} loading={isFetching} />
+          <Button
+            variant="secondary"
+            disabled={!leads || leads.length === 0}
+            onClick={() =>
+              leads && downloadQuizLeadsCsv(leads, `leads-${quiz}-${range.from.slice(0, 10)}.csv`)
+            }
+          >
+            ⬇ Exportar {leads?.length ? `${leads.length} leads` : 'leads'} (CSV)
+          </Button>
+          <RefreshButton />
         </div>
       </div>
 
@@ -62,7 +96,7 @@ export function AdminQuizDashboardPage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
             <StatCard label="Entradas no quiz" value={firstViews} accent />
             <StatCard
               label="Chegaram na captura"
@@ -76,6 +110,7 @@ export function AdminQuizDashboardPage() {
               hint={firstViews ? `${((totalLeads / firstViews) * 100).toFixed(0)}% do topo` : undefined}
             />
             <StatCard label="Cliques no checkout" value={checkoutClicks} accent />
+            <StatCard label="Leads na base" value={leads?.length ?? 0} hint="Disponíveis no CSV" />
           </div>
 
           <div className="card-surface rounded-xl p-4">
@@ -86,7 +121,7 @@ export function AdminQuizDashboardPage() {
               <span className="w-20 text-right">Retenção</span>
             </div>
             <div className="space-y-1.5">
-              {SCREENS.map((s) => {
+              {config.screens.map((s) => {
                 const st = byScreen.get(s.id) ?? { views: 0, clicks: 0 }
                 const isCheckout = s.id === 'checkout'
                 const retention = firstViews ? (st.views / firstViews) * 100 : 0

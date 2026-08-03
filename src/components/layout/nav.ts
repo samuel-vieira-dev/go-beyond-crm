@@ -5,6 +5,8 @@ export interface NavItem {
   label: string
   icon: string
   end?: boolean
+  /** Submenu — ao clicar, a lista expande abaixo do item. */
+  children?: { to: string; label: string }[]
 }
 
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
@@ -36,6 +38,14 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { to: '/admin/equipe', label: 'Equipe', icon: '👥' },
     { to: '/admin/produtos', label: 'Produtos', icon: '🏷️' },
     { to: '/admin/metas', label: 'Metas', icon: '🎯' },
-    { to: '/admin/quiz', label: 'Dashboard Quiz', icon: '📉' },
+    {
+      to: '/admin/quiz',
+      label: 'Dashboards',
+      icon: '📉',
+      children: [
+        { to: '/admin/quiz/link-bio', label: 'Quiz Link da Bio' },
+        { to: '/admin/quiz/pos-venda', label: 'Quiz Pós-venda' },
+      ],
+    },
   ],
 }

@@ -105,7 +105,9 @@ export default function App() {
             <Route path="/admin/equipe" element={<AdminTeamPage />} />
             <Route path="/admin/produtos" element={<AdminProductsPage />} />
             <Route path="/admin/metas" element={<AdminGoalsPage />} />
-            <Route path="/admin/quiz" element={<AdminQuizDashboardPage />} />
+            <Route path="/admin/quiz" element={<Navigate to="/admin/quiz/link-bio" replace />} />
+            <Route path="/admin/quiz/link-bio" element={<AdminQuizDashboardPage quiz="link-bio" />} />
+            <Route path="/admin/quiz/pos-venda" element={<AdminQuizDashboardPage quiz="pos-venda" />} />
           </Route>
         </Route>
 

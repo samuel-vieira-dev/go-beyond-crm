@@ -1,4 +1,5 @@
-import { NavLink } from 'react-router-dom'
+import { useState } from 'react'
+import { NavLink, useLocation } from 'react-router-dom'
 import { LogoLockup } from './Logo'
 import { NAV_BY_ROLE } from './nav'
 import { useAuth } from '@/context/AuthContext'
@@ -9,6 +10,8 @@ import { cn } from '@/lib/cn'
 export function Sidebar() {
   const { profile, signOut } = useAuth()
   const { pendingCount, overdueCount } = useActivityReminders()
+  const location = useLocation()
+  const [openMenu, setOpenMenu] = useState<string | null>(null)
   if (!profile) return null
 
   const items = NAV_BY_ROLE[profile.role]
@@ -18,7 +21,15 @@ export function Sidebar() {
       <LogoLockup className="mb-8 px-2" />
 
       <nav className="flex-1 space-y-1 overflow-y-auto">
-        {items.map((item) => (
+        {items.map((item) =>
+          item.children ? (
+            <SubMenu
+              key={item.to}
+              item={item}
+              open={openMenu === item.to || location.pathname.startsWith(item.to)}
+              onToggle={() => setOpenMenu((m) => (m === item.to ? null : item.to))}
+            />
+          ) : (
           <NavLink
             key={item.to}
             to={item.to}
@@ -45,7 +56,8 @@ export function Sidebar() {
               </span>
             )}
           </NavLink>
-        ))}
+          ),
+        )}
       </nav>
 
       <div className="mt-4 border-t border-white/10 pt-4">
@@ -59,5 +71,51 @@ export function Sidebar() {
         </button>
       </div>
     </aside>
+  )
+}
+
+/** Item de menu com lista de sub-itens (ex.: Dashboards). */
+function SubMenu({
+  item,
+  open,
+  onToggle,
+}: {
+  item: { to: string; label: string; icon: string; children?: { to: string; label: string }[] }
+  open: boolean
+  onToggle: () => void
+}) {
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className={cn(
+          'flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+          open ? 'text-white' : 'text-white/60 hover:bg-white/5 hover:text-white',
+        )}
+      >
+        <span className="text-base">{item.icon}</span>
+        <span className="flex-1 text-left">{item.label}</span>
+        <span className={cn('text-xs transition-transform', open && 'rotate-180')}>▾</span>
+      </button>
+
+      {open && (
+        <div className="mt-1 ml-4 space-y-1 border-l border-white/10 pl-3">
+          {item.children?.map((c) => (
+            <NavLink
+              key={c.to}
+              to={c.to}
+              className={({ isActive }) =>
+                cn(
+                  'block rounded-lg px-3 py-1.5 text-sm transition-colors',
+                  isActive ? 'bg-gold-500/15 text-gold-400' : 'text-white/50 hover:bg-white/5 hover:text-white',
+                )
+              }
+            >
+              {c.label}
+            </NavLink>
+          ))}
+        </div>
+      )}
+    </div>
   )
 }
