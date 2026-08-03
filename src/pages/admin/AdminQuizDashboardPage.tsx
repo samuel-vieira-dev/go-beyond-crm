@@ -36,6 +36,7 @@ const POS_VENDA_SCREENS: { id: string; label: string }[] = [
   { id: '8', label: '8 · Carregando' },
   { id: '9a', label: '9a · VSL Go Beyond (MQL)' },
   { id: '9b', label: '9b · VSL Speak-up' },
+  { id: 'whatsapp', label: '➜ Clique "Marcar conversa" (MQL)' },
   { id: 'checkout', label: '➜ Clique no Checkout' },
 ]
 
@@ -64,6 +65,9 @@ export function AdminQuizDashboardPage({ quiz = 'link-bio' }: { quiz?: QuizId })
   const firstViews = byScreen.get('1')?.views ?? 0
   const captureViews = byScreen.get(quiz === 'link-bio' ? '9' : '8')?.views ?? 0
   const checkoutClicks = byScreen.get('checkout')?.clicks ?? 0
+  const whatsappClicks = byScreen.get('whatsapp')?.clicks ?? 0
+  // No pós-venda a rota MQL termina no WhatsApp, não no checkout.
+  const conversionClicks = checkoutClicks + whatsappClicks
   const totalLeads = config.resultIds.reduce((sum, id) => sum + (byScreen.get(id)?.views ?? 0), 0)
 
   return (
@@ -109,7 +113,12 @@ export function AdminQuizDashboardPage({ quiz = 'link-bio' }: { quiz?: QuizId })
               accent
               hint={firstViews ? `${((totalLeads / firstViews) * 100).toFixed(0)}% do topo` : undefined}
             />
-            <StatCard label="Cliques no checkout" value={checkoutClicks} accent />
+            <StatCard
+              label={quiz === 'pos-venda' ? 'Cliques de conversão' : 'Cliques no checkout'}
+              value={conversionClicks}
+              accent
+              hint={quiz === 'pos-venda' ? `${whatsappClicks} WhatsApp · ${checkoutClicks} checkout` : undefined}
+            />
             <StatCard label="Leads na base" value={leads?.length ?? 0} hint="Disponíveis no CSV" />
           </div>
 
@@ -123,9 +132,9 @@ export function AdminQuizDashboardPage({ quiz = 'link-bio' }: { quiz?: QuizId })
             <div className="space-y-1.5">
               {config.screens.map((s) => {
                 const st = byScreen.get(s.id) ?? { views: 0, clicks: 0 }
-                const isCheckout = s.id === 'checkout'
+                const isCheckout = s.id === 'checkout' || s.id === 'whatsapp'
                 const retention = firstViews ? (st.views / firstViews) * 100 : 0
-                const barBase = isCheckout ? checkoutClicks : st.views
+                const barBase = isCheckout ? st.clicks : st.views
                 const barPct = firstViews ? Math.min(100, (barBase / firstViews) * 100) : 0
                 return (
                   <div key={s.id} className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-4">
