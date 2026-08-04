@@ -12,6 +12,7 @@ export interface NavItem {
 export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
   sdr: [
     { to: '/sdr', label: 'Leads', icon: '📋', end: true },
+    { to: '/sdr/upsell-af', label: 'Leads Upsell AF', icon: '💬' },
     { to: '/sdr/alertas', label: 'Alertas', icon: '🔔' },
     { to: '/sdr/metas', label: 'Minhas Metas', icon: '🎯' },
     { to: '/sdr/relatorio', label: 'Relatório do dia', icon: '📊' },
@@ -38,6 +39,12 @@ export const NAV_BY_ROLE: Record<Role, NavItem[]> = {
     { to: '/admin/equipe', label: 'Equipe', icon: '👥' },
     { to: '/admin/produtos', label: 'Produtos', icon: '🏷️' },
     { to: '/admin/metas', label: 'Metas', icon: '🎯' },
+    {
+      to: '/admin/leads',
+      label: 'Leads',
+      icon: '📇',
+      children: [{ to: '/admin/leads/quiz-upsell-af', label: 'Quiz Upsell AF' }],
+    },
     {
       to: '/admin/quiz',
       label: 'Dashboards',

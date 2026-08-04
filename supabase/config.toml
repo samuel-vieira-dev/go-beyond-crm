@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.yay-intake]
 verify_jwt = false
+
+[functions.clint-send]
+verify_jwt = true

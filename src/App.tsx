@@ -50,6 +50,10 @@ const AdminQuizDashboardPage = lazy(() =>
   import('@/pages/admin/AdminQuizDashboardPage').then((m) => ({ default: m.AdminQuizDashboardPage })),
 )
 
+const QuizUpsellLeadsPage = lazy(() =>
+  import('@/pages/QuizUpsellLeadsPage').then((m) => ({ default: m.QuizUpsellLeadsPage })),
+)
+
 const AlertsPage = lazy(() => import('@/pages/AlertsPage').then((m) => ({ default: m.AlertsPage })))
 const MyGoalsPage = lazy(() => import('@/pages/MyGoalsPage').then((m) => ({ default: m.MyGoalsPage })))
 
@@ -70,6 +74,7 @@ export default function App() {
         <Route element={<ProtectedRoute allow={['sdr']} />}>
           <Route element={<AppShell />}>
             <Route path="/sdr" element={<SdrPage />} />
+            <Route path="/sdr/upsell-af" element={<QuizUpsellLeadsPage />} />
             <Route path="/sdr/alertas" element={<AlertsPage />} />
             <Route path="/sdr/metas" element={<MyGoalsPage />} />
             <Route path="/sdr/relatorio" element={<SdrReportPage />} />
@@ -105,6 +110,8 @@ export default function App() {
             <Route path="/admin/equipe" element={<AdminTeamPage />} />
             <Route path="/admin/produtos" element={<AdminProductsPage />} />
             <Route path="/admin/metas" element={<AdminGoalsPage />} />
+            <Route path="/admin/leads" element={<Navigate to="/admin/leads/quiz-upsell-af" replace />} />
+            <Route path="/admin/leads/quiz-upsell-af" element={<QuizUpsellLeadsPage />} />
             <Route path="/admin/quiz" element={<Navigate to="/admin/quiz/link-bio" replace />} />
             <Route path="/admin/quiz/link-bio" element={<AdminQuizDashboardPage quiz="link-bio" />} />
             <Route path="/admin/quiz/pos-venda" element={<AdminQuizDashboardPage quiz="pos-venda" />} />
