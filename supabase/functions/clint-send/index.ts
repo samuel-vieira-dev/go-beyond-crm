@@ -15,6 +15,9 @@ const corsHeaders = {
 
 const CLINT_WEBHOOK_URL = 'https://functions-api.clint.digital/endpoints/integration/webhook/001f7a55-d8e1-44b5-a33f-51d6b6aac2f5'
 
+// Campo "tags" mapeado no webhook da Clint — string única, tags separadas por vírgula.
+const CLINT_TAGS = 'Quiz Upsell AF,Autodidata Fluente'
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
@@ -38,7 +41,12 @@ Deno.serve(async (req) => {
   try {
     // deno-lint-ignore no-explicit-any
     const p = (await req.json()) as Record<string, any>
-    const payload = { nome: p?.nome ?? null, telefone: p?.telefone ?? null, email: p?.email ?? null }
+    const payload = {
+      nome: p?.nome ?? null,
+      telefone: p?.telefone ?? null,
+      email: p?.email ?? null,
+      tags: CLINT_TAGS,
+    }
 
     console.log('[clint-send] enviando:', payload.nome, payload.telefone)
 
