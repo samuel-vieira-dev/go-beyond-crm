@@ -15,8 +15,8 @@ const corsHeaders = {
 
 const CLINT_WEBHOOK_URL = 'https://functions-api.clint.digital/endpoints/integration/webhook/001f7a55-d8e1-44b5-a33f-51d6b6aac2f5'
 
-// Campo "tags" mapeado no webhook da Clint — string única, tags separadas por vírgula.
-const CLINT_TAGS = 'Quiz Upsell AF,Autodidata Fluente'
+// Campo "tags" mapeado no webhook da Clint.
+const CLINT_TAGS = 'Quiz-Upsell-AF'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
