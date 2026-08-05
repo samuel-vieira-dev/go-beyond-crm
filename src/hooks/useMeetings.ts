@@ -109,27 +109,7 @@ export function useReassignCloser() {
   })
 }
 
-/** Reunião "em aberto" (status agendada) mais recente de um lead — usada pro modal de resultado. */
-export function useActiveMeetingForLead(leadId: string | null) {
-  return useQuery({
-    queryKey: ['meetings', 'active-for-lead', leadId],
-    enabled: !!leadId,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('meetings')
-        .select('*')
-        .eq('lead_id', leadId!)
-        .eq('status', 'agendada')
-        .order('scheduled_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (error) throw error
-      return data
-    },
-  })
-}
-
-/** Última reunião registrada para o lead, de qualquer status — usada para reagendar. */
+/** Última reunião registrada para o lead, de qualquer status — usada para reagendar e para corrigir resultado. */
 export function useLatestMeetingForLead(leadId: string | null) {
   return useQuery({
     queryKey: ['meetings', 'latest-for-lead', leadId],

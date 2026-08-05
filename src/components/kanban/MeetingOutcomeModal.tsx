@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { FormRow, Input, Select } from '@/components/ui/Field'
-import { useActiveMeetingForLead, useSetMeetingAttendance } from '@/hooks/useMeetings'
+import { useLatestMeetingForLead, useSetMeetingAttendance } from '@/hooks/useMeetings'
 import { useProducts } from '@/hooks/useProducts'
 import { useRegisterNoSale, useRegisterSale } from '@/hooks/useSales'
 import { LOST_REASONS } from '@/types/domain'
@@ -19,7 +19,9 @@ export function MeetingOutcomeModal({
   onClose: () => void
   initialStep?: Step
 }) {
-  const { data: meeting } = useActiveMeetingForLead(lead?.id ?? null)
+  // A última reunião do lead, seja qual for o status — inclui corrigir um resultado já
+  // registrado (ex.: marcou "compareceu" errado e quer voltar pra "não compareceu").
+  const { data: meeting } = useLatestMeetingForLead(lead?.id ?? null)
   const setAttendance = useSetMeetingAttendance()
   const { data: products } = useProducts()
   const registerSale = useRegisterSale()
@@ -90,7 +92,7 @@ export function MeetingOutcomeModal({
           <p className="text-sm text-white/60">O lead compareceu à reunião?</p>
           {!meeting ? (
             <p className="text-xs text-white/40">
-              Nenhuma reunião em aberto encontrada para este lead.
+              Nenhuma reunião encontrada para este lead.
             </p>
           ) : (
             <div className="flex gap-2">
