@@ -19,16 +19,19 @@ export function SocialMetricsPanel({ range }: { range: DateRange }) {
 
   const hoje = new Date()
   const hojeKey = format(hoje, 'yyyy-MM-dd')
-  const hojeRow = data?.rows.find((r) => r.date === hojeKey)
+  // Data selecionada para lançar/editar (default hoje). Permite corrigir um dia passado.
+  const [selectedKey, setSelectedKey] = useState(hojeKey)
+  const selectedDate = new Date(`${selectedKey}T00:00:00`)
+  const selectedRow = data?.rows.find((r) => r.date === selectedKey)
 
   useEffect(() => {
-    setAtivacoes(String(hojeRow?.ativacoes ?? ''))
-    setConversas(String(hojeRow?.conversas ?? ''))
-  }, [hojeRow?.ativacoes, hojeRow?.conversas])
+    setAtivacoes(String(selectedRow?.ativacoes ?? ''))
+    setConversas(String(selectedRow?.conversas ?? ''))
+  }, [selectedRow?.ativacoes, selectedRow?.conversas])
 
   async function handleSave() {
     await save.mutateAsync({
-      date: hoje,
+      date: selectedDate,
       ativacoes: Number(ativacoes || 0),
       conversas: Number(conversas || 0),
     })
@@ -40,16 +43,27 @@ export function SocialMetricsPanel({ range }: { range: DateRange }) {
     <div className="card-surface rounded-xl p-4">
       <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-white">
-          Lançar números de hoje — {format(hoje, "d 'de' MMMM", { locale: ptBR })}
+          Lançar números — {format(selectedDate, "d 'de' MMMM", { locale: ptBR })}
+          {selectedKey === hojeKey && ' (hoje)'}
         </h2>
         {saved && <span className="text-xs text-success">✓ salvo</span>}
       </div>
       <p className="mb-3 text-xs text-white/40">
         Ativações e Conversas acontecem no Business Suite. Lance aqui no fim do dia para fechar o
-        funil do Social Selling.
+        funil do Social Selling. Esqueceu um dia? Escolha a data e preencha.
       </p>
 
       <div className="flex flex-wrap items-end gap-3">
+        <div>
+          <p className="mb-1 text-xs text-white/50">Data</p>
+          <Input
+            type="date"
+            className="w-40"
+            max={hojeKey}
+            value={selectedKey}
+            onChange={(e) => setSelectedKey(e.target.value)}
+          />
+        </div>
         <div>
           <p className="mb-1 text-xs text-white/50">Ativações</p>
           <Input
