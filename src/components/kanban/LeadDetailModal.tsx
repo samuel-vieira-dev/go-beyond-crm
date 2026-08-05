@@ -9,6 +9,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useAddLeadNote, useDeleteLead, useLead, useLeadEvents } from '@/hooks/useLeads'
 import { useProfiles } from '@/hooks/useProfiles'
 import { useReassignCloser } from '@/hooks/useMeetings'
+import { useSendToClint } from '@/hooks/useQuizUpsellLeads'
 import { LeadEditModal } from './LeadEditModal'
 import { ActivitiesSection } from './ActivitiesSection'
 import { ORIGIN_LABELS, STAGE_LABELS } from '@/types/domain'
@@ -28,15 +29,19 @@ export function LeadDetailModal({
   lead,
   onClose,
   extraActions,
+  /** Prefixo da tag da Clint (ex.: "SDR", "Social Seller"). Some para esconder o botão "Enviar p/ Clint". */
+  sendToClintTag,
 }: {
   lead: LeadWithRelations | null
   onClose: () => void
   extraActions?: React.ReactNode
+  sendToClintTag?: string
 }) {
   const { profile } = useAuth()
   const deleteLead = useDeleteLead()
   const addNote = useAddLeadNote()
   const reassignCloser = useReassignCloser()
+  const sendToClint = useSendToClint()
   const isAdmin = profile?.role === 'admin'
   // SDR e Social Seller também trocam o closer (ex.: closer indisponível).
   const canAssignCloser =
@@ -53,11 +58,22 @@ export function LeadDetailModal({
     setNote(current?.notes ?? '')
   }, [current?.id, current?.notes])
 
+  useEffect(() => {
+    sendToClint.reset()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id])
+
   if (!lead || !current) return null
 
   const canEdit = profile?.role !== undefined
   // Leads vindos do Instagram entram sem telefone (captado depois, na conversa).
   const whatsappDigits = (current.whatsapp ?? '').replace(/\D/g, '')
+
+  function handleSendToClint() {
+    if (!current) return
+    const tags = [sendToClintTag, current.owner?.full_name].filter(Boolean).join(',')
+    sendToClint.mutate({ nome: current.name, telefone: current.whatsapp, email: current.email, tags })
+  }
 
   return (
     <Modal open={!!lead} onClose={onClose} title={current.name} width="lg">
@@ -67,11 +83,31 @@ export function LeadDetailModal({
             <Badge tone="gold">{STAGE_LABELS[current.stage]}</Badge>
             <Badge tone="blue">{ORIGIN_LABELS[current.origin]}</Badge>
             {current.is_mql && <Badge tone="green">Qualificado</Badge>}
-            {canEdit && (
-              <Button size="sm" variant="secondary" className="ml-auto" onClick={() => setEditing(true)}>
-                ✎ Editar
-              </Button>
-            )}
+            <div className="ml-auto flex items-center gap-1.5">
+              {sendToClintTag && whatsappDigits && (
+                <Button
+                  size="sm"
+                  variant={sendToClint.isError ? 'danger' : 'secondary'}
+                  className="px-2 py-1 text-[11px]"
+                  onClick={handleSendToClint}
+                  disabled={sendToClint.isPending}
+                  title="Enviar lead para a Clint"
+                >
+                  {sendToClint.isPending
+                    ? 'Enviando...'
+                    : sendToClint.isSuccess
+                      ? '✓ Enviado'
+                      : sendToClint.isError
+                        ? '✕ Erro'
+                        : '↗ Clint'}
+                </Button>
+              )}
+              {canEdit && (
+                <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
+                  ✎ Editar
+                </Button>
+              )}
+            </div>
           </div>
 
           <dl className="space-y-2 text-sm">

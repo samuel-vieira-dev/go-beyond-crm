@@ -76,6 +76,8 @@ export interface SendToClintInput {
   nome: string | null
   telefone: string | null
   email: string | null
+  /** Tags aplicadas ao lead na Clint (ex.: "SDR,Fulana"). Se omitido, a function usa um padrão. */
+  tags?: string
 }
 
 /** Envia o lead para o webhook de integração da Clint (via Edge Function — a URL não fica no client). */

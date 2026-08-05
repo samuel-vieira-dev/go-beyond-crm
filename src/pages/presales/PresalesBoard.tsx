@@ -18,6 +18,7 @@ export function PresalesBoard({
   originOptions,
   newLeadStage,
   newLeadFormTag,
+  sendToClintTag,
 }: {
   title: string
   subtitle: string
@@ -28,6 +29,8 @@ export function PresalesBoard({
   newLeadStage?: LeadStage
   /** Tag de canal aplicada ao lead cadastrado manualmente. */
   newLeadFormTag?: string
+  /** Prefixo da tag da Clint (ex.: "SDR", "Social Seller"). Some para esconder o botão "Enviar p/ Clint". */
+  sendToClintTag?: string
 }) {
   const boardStages = useMemo(
     () => Array.from(new Set(columns.flatMap((c) => c.stages))),
@@ -111,6 +114,7 @@ export function PresalesBoard({
         lead={selectedLead}
         onClose={() => setSelectedLead(null)}
         extraActions={selectedLead ? extraActionsFor(selectedLead) : null}
+        sendToClintTag={sendToClintTag}
       />
 
       <ScheduleMeetingModal lead={schedulingLead} onClose={() => setSchedulingLead(null)} />

@@ -9,6 +9,7 @@ export function SdrPage() {
       columns={SDR_COLUMNS}
       defaultOrigin="manual"
       originOptions={['clint', 'manual', 'quiz', 'indicacao', 'outro']}
+      sendToClintTag="SDR"
     />
   )
 }

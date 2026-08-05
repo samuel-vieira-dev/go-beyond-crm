@@ -1,7 +1,8 @@
 // Edge Function: clint-send
-// Chamada pelo painel (botão "Clint" da tela Leads Upsell AF) para empurrar um lead
-// para o webhook de integração da Clint. Proxy simples: recebe nome/telefone/e-mail
-// do front, repassa para a URL da Clint. A URL fica só aqui — não no bundle do client.
+// Chamada pelo painel (botão "Enviar p/ Clint" das telas de Leads Upsell AF, SDR e
+// Social Seller) para empurrar um lead para o webhook de integração da Clint. Proxy
+// simples: recebe nome/telefone/e-mail/tags do front, repassa para a URL da Clint.
+// A URL fica só aqui — não no bundle do client.
 //
 // Sem validação de payload por pedido explícito (quem valida do lado da Clint é a Clint).
 
@@ -15,8 +16,8 @@ const corsHeaders = {
 
 const CLINT_WEBHOOK_URL = 'https://functions-api.clint.digital/endpoints/integration/webhook/001f7a55-d8e1-44b5-a33f-51d6b6aac2f5'
 
-// Campo "tags" mapeado no webhook da Clint.
-const CLINT_TAGS = 'Quiz-Upsell-AF'
+// Campo "tags" mapeado no webhook da Clint. Usado quando o front não informa tags.
+const DEFAULT_CLINT_TAGS = 'Quiz-Upsell-AF'
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -45,7 +46,7 @@ Deno.serve(async (req) => {
       nome: p?.nome ?? null,
       telefone: p?.telefone ?? null,
       email: p?.email ?? null,
-      tags: CLINT_TAGS,
+      tags: typeof p?.tags === 'string' && p.tags.trim() ? p.tags : DEFAULT_CLINT_TAGS,
     }
 
     console.log('[clint-send] enviando:', payload.nome, payload.telefone)

@@ -211,7 +211,7 @@ function LeadRow({ lead, onSent }: { lead: QuizUpsellLead; onSent: () => void })
 
   function handleSendToClint() {
     sendToClint.mutate(
-      { nome: lead.full_name, telefone: lead.phone_e164, email: lead.email },
+      { nome: lead.full_name, telefone: lead.phone_e164, email: lead.email, tags: 'Quiz-Upsell-AF,Bruna' },
       { onSuccess: onSent },
     )
   }

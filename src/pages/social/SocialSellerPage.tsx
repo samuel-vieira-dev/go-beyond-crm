@@ -11,6 +11,7 @@ export function SocialSellerPage() {
       originOptions={['instagram', 'indicacao', 'manual', 'outro']}
       newLeadStage="oferta_reuniao"
       newLeadFormTag="Social Selling"
+      sendToClintTag="Social Seller"
     />
   )
 }
