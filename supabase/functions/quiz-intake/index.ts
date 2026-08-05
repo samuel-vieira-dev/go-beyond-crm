@@ -58,6 +58,21 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!)
 
+    // Já existe um card ABERTO desse contato (mesmo telefone ou e-mail)? Não duplica.
+    const { data: existingLeadId } = await supabase.rpc('find_open_lead', {
+      p_phone: phone,
+      p_email: email,
+    })
+    if (existingLeadId) {
+      await supabase.from('lead_events').insert({
+        lead_id: existingLeadId,
+        type: 'note',
+        payload: { source: 'quiz-link-bio', note: 'Tentativa de novo lead — já existia card aberto para este contato.' },
+      })
+      console.log(`[quiz-intake] duplicado — reaproveitando lead ${existingLeadId}`)
+      return json({ ok: true, lead_id: existingLeadId, duplicated: true }, 200)
+    }
+
     // Distribuição automática round-robin entre os SDRs ativos.
     const { data: ownerId } = await supabase.rpc('next_sdr_owner')
 

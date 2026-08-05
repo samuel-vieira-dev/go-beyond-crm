@@ -198,6 +198,23 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Já existe um card ABERTO desse contato (mesmo telefone ou e-mail)? Não duplica —
+    // cobre o caso da própria Yay reenviando com um novo yay_response_id (resposta
+    // reenviada/reeditada) e o caso de outra fonte já ter criado o card antes.
+    const { data: existingLeadId } = await supabase.rpc('find_open_lead', {
+      p_phone: phone,
+      p_email: email,
+    })
+    if (existingLeadId) {
+      await supabase.from('lead_events').insert({
+        lead_id: existingLeadId,
+        type: 'note',
+        payload: { source: 'yay-forms', form_id: r?.formId ?? null, note: 'Tentativa de novo lead — já existia card aberto para este contato.' },
+      })
+      console.log(`[yay-intake] duplicado — reaproveitando lead ${existingLeadId}`)
+      return json({ ok: true, lead_id: existingLeadId, duplicated: true })
+    }
+
     const { data: ownerId } = await supabase.rpc('next_sdr_owner')
 
     const { data: lead, error } = await supabase
