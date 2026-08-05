@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format, startOfDay } from 'date-fns'
+import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useAuth } from '@/context/AuthContext'
 import { usePresalesDailyReport } from '@/hooks/useDailyReport'
@@ -7,7 +7,7 @@ import type { DateRange } from '@/hooks/useFunnelMetrics'
 import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
 import { RefreshButton } from '@/components/ui/RefreshButton'
-import { DateRangePicker } from '@/components/ui/DateRangePicker'
+import { DateRangePicker, rangeForPreset } from '@/components/ui/DateRangePicker'
 import { STAGE_LABELS, type BoardColumn } from '@/types/domain'
 
 export function PresalesReport({
@@ -21,10 +21,8 @@ export function PresalesReport({
   socialPanel?: (range: DateRange) => React.ReactNode
 }) {
   const { profile } = useAuth()
-  const [range, setRange] = useState<DateRange>({
-    from: startOfDay(new Date()).toISOString(),
-    to: new Date().toISOString(),
-  })
+  // Abre em "Hoje" — mesmo range do preset, para o botão aceso bater com os dados.
+  const [range, setRange] = useState<DateRange>(() => rangeForPreset('today'))
   const { data, isLoading, isFetching, refetch } = usePresalesDailyReport(profile?.id ?? null, range)
 
   return (
@@ -35,7 +33,7 @@ export function PresalesReport({
           <p className="text-sm text-white/40 capitalize">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="today" />
           <RefreshButton onClick={() => refetch()} loading={isFetching} />
         </div>
       </div>

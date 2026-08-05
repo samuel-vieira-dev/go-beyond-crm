@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
 import type { DateRange } from './useFunnelMetrics'
@@ -10,6 +11,8 @@ export interface PresalesDailyReport {
   /** Contagem ATUAL de leads por etapa (do próprio pré-vendedor). */
   pipeline: Record<string, number>
   leads: { id: string; name: string; stage: LeadStage; created_at: string }[]
+  /** Mesmos números, quebrados por dia ("yyyy-MM-dd" local) para o relatório diário. */
+  byDay: Record<string, { newLeads: number; meetingsBooked: number }>
 }
 
 /** Relatório do pré-vendedor: atividade no período + snapshot atual do pipeline dele. */
@@ -22,7 +25,7 @@ export function usePresalesDailyReport(profileId: string | null, range: DateRang
     queryFn: async (): Promise<PresalesDailyReport> => {
       const { data: events, error: eventsError } = await supabase
         .from('lead_events')
-        .select('type')
+        .select('type, created_at')
         .eq('actor_id', profileId!)
         .gte('created_at', range.from)
         .lte('created_at', range.to)
@@ -30,9 +33,18 @@ export function usePresalesDailyReport(profileId: string | null, range: DateRang
 
       let newLeads = 0
       let meetingsBooked = 0
+      const byDay: PresalesDailyReport['byDay'] = {}
       for (const ev of events ?? []) {
-        if (ev.type === 'created') newLeads++
-        if (ev.type === 'meeting_booked') meetingsBooked++
+        const isNew = ev.type === 'created'
+        const isMeeting = ev.type === 'meeting_booked'
+        if (!isNew && !isMeeting) continue
+        if (isNew) newLeads++
+        if (isMeeting) meetingsBooked++
+        // Dia local: o relatório é lido no fuso de quem preenche, não em UTC.
+        const day = format(new Date(ev.created_at), 'yyyy-MM-dd')
+        const bucket = (byDay[day] ??= { newLeads: 0, meetingsBooked: 0 })
+        if (isNew) bucket.newLeads++
+        if (isMeeting) bucket.meetingsBooked++
       }
 
       // Snapshot atual do pipeline (leads do próprio pré-vendedor).
@@ -53,7 +65,7 @@ export function usePresalesDailyReport(profileId: string | null, range: DateRang
         .order('created_at', { ascending: false })
       if (leadsError) throw leadsError
 
-      return { newLeads, meetingsBooked, pipeline, leads: leads ?? [] }
+      return { newLeads, meetingsBooked, pipeline, leads: leads ?? [], byDay }
     },
   })
 }

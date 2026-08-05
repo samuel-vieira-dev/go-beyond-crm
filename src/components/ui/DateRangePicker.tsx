@@ -33,11 +33,14 @@ function rangeForPreset(preset: Preset): DateRange {
 export function DateRangePicker({
   value,
   onChange,
+  defaultPreset = '30d',
 }: {
   value: DateRange
   onChange: (range: DateRange) => void
+  /** Preset aceso ao abrir a tela — precisa bater com o range inicial de quem usa. */
+  defaultPreset?: Preset
 }) {
-  const [preset, setPreset] = useState<Preset>('30d')
+  const [preset, setPreset] = useState<Preset>(defaultPreset)
 
   function selectPreset(p: Preset) {
     setPreset(p)
@@ -82,3 +85,4 @@ export function DateRangePicker({
 }
 
 export { rangeForPreset }
+export type { Preset }
