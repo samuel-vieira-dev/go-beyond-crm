@@ -7,7 +7,7 @@ import type { MeetingWithLead } from '@/types/database'
 const MEETING_SELECT = '*, lead:leads(*), booked_by_profile:profiles!meetings_booked_by_fkey(id,full_name)'
 
 /** Impede overbooking: garante que o closer não tem outra reunião agendada no mesmo horário. */
-async function assertSlotFree(closerId: string, scheduledAt: string, ignoreMeetingId?: string) {
+export async function assertSlotFree(closerId: string, scheduledAt: string, ignoreMeetingId?: string) {
   let q = supabase
     .from('meetings')
     .select('id')

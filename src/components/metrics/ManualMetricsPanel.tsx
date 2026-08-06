@@ -43,7 +43,8 @@ function daysInRange(range: DateRange): string[] {
 const ROLE_HINT: Record<string, string> = {
   social_seller: 'Ativações e conversas acontecem no Business Suite e não viram card.',
   sdr: 'Números que não passaram pelo kanban — qualificação por DM, agendamento fechado no WhatsApp.',
-  closer: 'Reuniões e vendas que aconteceram sem card no kanban.',
+  closer:
+    'Reuniões e vendas sem card no kanban. O que você lançar por "+ Lead fora do kanban" já vira card e não entra aqui.',
   admin: 'Lançamento manual de qualquer etapa, para qualquer papel.',
 }
 

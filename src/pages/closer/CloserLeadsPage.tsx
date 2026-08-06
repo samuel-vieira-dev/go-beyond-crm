@@ -5,6 +5,7 @@ import { LeadDetailModal } from '@/components/kanban/LeadDetailModal'
 import { MeetingOutcomeModal } from '@/components/kanban/MeetingOutcomeModal'
 import { RescheduleMeetingModal } from '@/components/kanban/RescheduleMeetingModal'
 import { LostReasonModal } from '@/components/kanban/LostReasonModal'
+import { QuickCloserLeadModal } from '@/components/kanban/QuickCloserLeadModal'
 import { Button } from '@/components/ui/Button'
 import { useChangeLeadStage, useLeads, type LeadFilters } from '@/hooks/useLeads'
 import { CLOSER_STAGES, simpleColumns, type LeadStage } from '@/types/domain'
@@ -17,6 +18,7 @@ export function CloserLeadsPage() {
   const [outcomeStep, setOutcomeStep] = useState<'attendance' | 'sale-question' | 'sale-form' | 'no-sale-form'>('attendance')
   const [rescheduleLead, setRescheduleLead] = useState<LeadWithRelations | null>(null)
   const [lostLead, setLostLead] = useState<LeadWithRelations | null>(null)
+  const [quickLeadOpen, setQuickLeadOpen] = useState(false)
 
   const columns = useMemo(() => simpleColumns(CLOSER_STAGES), [])
   const { data: leads, isLoading } = useLeads(filters)
@@ -87,9 +89,12 @@ export function CloserLeadsPage() {
 
   return (
     <div className="space-y-5">
-      <div>
-        <h1 className="text-xl font-semibold text-white">Meus Leads — Closer</h1>
-        <p className="text-sm text-white/40">Reuniões agendadas até o fechamento</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-white">Meus Leads — Closer</h1>
+          <p className="text-sm text-white/40">Reuniões agendadas até o fechamento</p>
+        </div>
+        <Button onClick={() => setQuickLeadOpen(true)}>+ Lead fora do kanban</Button>
       </div>
 
       <LeadFiltersBar
@@ -118,6 +123,7 @@ export function CloserLeadsPage() {
       <MeetingOutcomeModal lead={outcomeLead} onClose={() => setOutcomeLead(null)} initialStep={outcomeStep} />
       <RescheduleMeetingModal lead={rescheduleLead} onClose={() => setRescheduleLead(null)} />
       <LostReasonModal lead={lostLead} onClose={() => setLostLead(null)} />
+      <QuickCloserLeadModal open={quickLeadOpen} onClose={() => setQuickLeadOpen(false)} />
     </div>
   )
 }
