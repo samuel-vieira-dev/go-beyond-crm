@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { endOfDay, endOfMonth, format, parseISO, startOfDay, startOfMonth, subDays } from 'date-fns'
+import { endOfDay, endOfMonth, format, isValid, parseISO, startOfDay, startOfMonth, subDays } from 'date-fns'
 import { Button } from './Button'
 import { Input } from './Field'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
@@ -87,6 +87,30 @@ export function DateRangePicker({
       )}
     </div>
   )
+}
+
+/**
+ * Descreve o período em texto — "hoje", "últimos 7 dias", ou a data (ou intervalo
+ * de datas) por extenso quando não bate com nenhum preset conhecido.
+ *
+ * Usada nos totais dos relatórios diários para deixar claro QUAL período está
+ * sendo somado, sem depender de quem olha lembrar qual botão estava aceso.
+ */
+export function rangeLabel(range: DateRange): string {
+  const from = parseISO(range.from)
+  const to = parseISO(range.to)
+  if (!isValid(from) || !isValid(to)) return ''
+
+  const sameRange = (a: DateRange) => a.from === range.from && a.to === range.to
+  if (sameRange(rangeForPreset('today'))) return 'hoje'
+  if (sameRange(rangeForPreset('yesterday'))) return 'ontem'
+  if (sameRange(rangeForPreset('7d'))) return 'últimos 7 dias'
+  if (sameRange(rangeForPreset('30d'))) return 'últimos 30 dias'
+  if (sameRange(rangeForPreset('month'))) return 'este mês'
+
+  const fromLabel = format(from, 'dd/MM/yyyy')
+  const toLabel = format(to, 'dd/MM/yyyy')
+  return fromLabel === toLabel ? fromLabel : `${fromLabel} até ${toLabel}`
 }
 
 export { rangeForPreset }

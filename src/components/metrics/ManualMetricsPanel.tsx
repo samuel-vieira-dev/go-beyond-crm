@@ -12,6 +12,7 @@ import {
   type ManualField,
 } from '@/hooks/useManualMetrics'
 import { cn } from '@/lib/cn'
+import { rangeLabel } from '@/components/ui/DateRangePicker'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
 import type { ManualMetrics } from '@/types/database'
 
@@ -85,7 +86,7 @@ export function ManualMetricsPanel({ range }: { range: DateRange }) {
           <table className="w-full min-w-[560px] border-separate border-spacing-0 text-sm">
             <thead>
               <tr className="text-left text-[11px] text-white/40">
-                <th className="sticky left-0 z-10 bg-navy-900 py-2 pr-3 font-medium">Dia</th>
+                <th className="sticky left-0 z-10 bg-navy-950/90 py-2 pr-3 font-medium backdrop-blur-sm">Dia</th>
                 {fields.map((f) => (
                   <th key={f} className="py-2 pr-1 text-right font-medium" title={MANUAL_FIELD_HINTS[f]}>
                     {MANUAL_FIELD_LABELS[f]}
@@ -106,8 +107,8 @@ export function ManualMetricsPanel({ range }: { range: DateRange }) {
             </tbody>
             <tfoot>
               <tr className="text-[11px] text-white/50">
-                <td className="sticky left-0 z-10 border-t border-white/10 bg-navy-900 py-2 pr-3 font-medium">
-                  Total do período
+                <td className="sticky left-0 z-10 whitespace-nowrap border-t border-white/10 bg-navy-950/90 py-2 pr-3 font-medium backdrop-blur-sm">
+                  Total · {rangeLabel(range)}
                 </td>
                 {fields.map((f) => (
                   <td key={f} className="border-t border-white/10 py-2 pr-3 text-right font-semibold text-white">
@@ -153,12 +154,7 @@ function DayRow({
 
   return (
     <tr className={cn('group transition-colors hover:bg-white/[0.03]', hoje && 'bg-gold-500/[0.07]')}>
-      <td
-        className={cn(
-          'sticky left-0 z-10 whitespace-nowrap border-t border-white/5 py-1 pr-3',
-          hoje ? 'bg-navy-900' : 'bg-navy-900',
-        )}
-      >
+      <td className="sticky left-0 z-10 whitespace-nowrap border-t border-white/5 bg-navy-950/90 py-1 pr-3 backdrop-blur-sm">
         <span className={cn('capitalize', hoje ? 'text-white' : weekend ? 'text-white/35' : 'text-white/70')}>
           {format(date, "EEE, d 'de' MMM", { locale: ptBR })}
         </span>
