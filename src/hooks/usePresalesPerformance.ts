@@ -22,7 +22,20 @@ export interface SocialRow extends SdrRow {
   ofertas: number
 }
 
-/** Performance separada por canal: o SDR recebe leads, a Social Seller ativa contatos. */
+/**
+ * Performance separada por canal: o SDR recebe leads, a Social Seller ativa contatos.
+ *
+ * "Agendamentos" conta pela data em que a reunião foi MARCADA (meetings.created_at),
+ * não pela data em que ela vai acontecer (scheduled_at) — é a mesma definição do
+ * funil do Admin (useFunnelMetrics) e do relatório do próprio pré-vendedor
+ * (usePresalesDailyReport). Contar por scheduled_at fazia o número deste ranking
+ * divergir MUITO do que o pré-vendedor via no relatório dele: alguém que marca hoje
+ * uma reunião pra semana que vem soma no relatório dele hoje, mas só apareceria
+ * aqui na semana que vem — o vendedor via 26 agendamentos e o admin via 6.
+ *
+ * "Realizadas"/"No-show" continuam por scheduled_at: o resultado pertence ao dia em
+ * que a reunião de fato aconteceu, não ao dia em que foi marcada.
+ */
 export function usePresalesPerformanceSplit(range: DateRange) {
   useRealtimeInvalidate('presales-split-rt', ['leads', 'meetings', 'sales', 'social_metrics'], [['presales-split']])
 
@@ -32,18 +45,26 @@ export function usePresalesPerformanceSplit(range: DateRange) {
       const from = range.from
       const to = range.to
 
-      const [{ data: profiles }, { data: leads }, { data: meetings }, { data: sales }, { data: metrics }] =
+      const [{ data: profiles }, { data: leads }, { data: allMeetings }, { data: sales }, { data: metrics }] =
         await Promise.all([
           supabase.from('profiles').select('id, full_name, role').eq('active', true),
           supabase.from('leads').select('owner_id, is_mql, stage, created_at').gte('created_at', from).lte('created_at', to),
-          supabase.from('meetings').select('booked_by, closer_id, status, lead_id, scheduled_at').gte('scheduled_at', from).lte('scheduled_at', to),
+          // Tabela pequena: mais simples e mais correto buscar tudo e separar em JS
+          // por dois campos de data diferentes do que arriscar duas queries divergirem.
+          supabase.from('meetings').select('booked_by, closer_id, status, lead_id, scheduled_at, created_at'),
           supabase.from('sales').select('lead_id, amount, sold_at').gte('sold_at', from).lte('sold_at', to),
           supabase.from('social_metrics').select('*').gte('date', from.slice(0, 10)).lte('date', to.slice(0, 10)),
         ])
 
-      // Quem agendou a reunião do lead → a venda é creditada a essa pessoa.
+      const meetings = allMeetings ?? []
+      const bookedInRange = meetings.filter((m) => m.created_at >= from && m.created_at <= to)
+      const heldInRange = meetings.filter((m) => m.scheduled_at >= from && m.scheduled_at <= to)
+
+      // Quem agendou a reunião do lead → a venda é creditada a essa pessoa, mesmo que
+      // o agendamento tenha sido marcado fora do período (a venda pode fechar semanas
+      // depois da reunião ter sido agendada).
       const bookerByLead = new Map<string, string>()
-      for (const m of meetings ?? []) if (m.lead_id && m.booked_by) bookerByLead.set(m.lead_id, m.booked_by)
+      for (const m of meetings) if (m.lead_id && m.booked_by) bookerByLead.set(m.lead_id, m.booked_by)
 
       const base = (p: { id: string; full_name: string }) => ({
         profileId: p.id,
@@ -77,10 +98,14 @@ export function usePresalesPerformanceSplit(range: DateRange) {
         }
       }
 
-      for (const m of meetings ?? []) {
+      for (const m of bookedInRange) {
+        const r = row(m.booked_by)
+        if (r) r.agendamentos++
+      }
+
+      for (const m of heldInRange) {
         const r = row(m.booked_by)
         if (!r) continue
-        r.agendamentos++
         if (m.status === 'realizada') r.realizadas++
         if (m.status === 'nao_compareceu') r.noShow++
       }

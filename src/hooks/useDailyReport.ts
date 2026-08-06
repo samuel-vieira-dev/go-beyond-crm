@@ -18,7 +18,11 @@ export interface PresalesDailyReport {
 
 /** Relatório do pré-vendedor: atividade no período + snapshot atual do pipeline dele. */
 export function usePresalesDailyReport(profileId: string | null, range: DateRange) {
-  useRealtimeInvalidate('presales-report-rt', ['leads', 'lead_events', 'meetings'], [['daily-report', 'presales']])
+  useRealtimeInvalidate(
+    'presales-report-rt',
+    ['leads', 'lead_events', 'meetings', 'social_metrics'],
+    [['daily-report', 'presales']],
+  )
 
   return useQuery({
     queryKey: ['daily-report', 'presales', profileId, range],
@@ -26,27 +30,50 @@ export function usePresalesDailyReport(profileId: string | null, range: DateRang
     queryFn: async (): Promise<PresalesDailyReport> => {
       const { data: events, error: eventsError } = await supabase
         .from('lead_events')
-        .select('type, created_at')
+        .select('created_at')
         .eq('actor_id', profileId!)
+        .eq('type', 'created')
         .gte('created_at', range.from)
         .lte('created_at', range.to)
       if (eventsError) throw eventsError
 
+      // Agendamentos: mesma fonte e mesmo campo de data do funil do Admin
+      // (useFunnelMetrics) e do ranking (usePresalesPerformanceSplit) — a data em que
+      // a reunião foi MARCADA, não a data em que ela vai acontecer. Vem direto de
+      // meetings (não de lead_events): não depende do evento espelho ter sido gravado.
+      const { data: booked, error: bookedError } = await supabase
+        .from('meetings')
+        .select('created_at')
+        .eq('booked_by', profileId!)
+        .gte('created_at', range.from)
+        .lte('created_at', range.to)
+      if (bookedError) throw bookedError
+
       let newLeads = 0
-      let meetingsBooked = 0
       const byDay: PresalesDailyReport['byDay'] = {}
       for (const ev of events ?? []) {
-        const isNew = ev.type === 'created'
-        const isMeeting = ev.type === 'meeting_booked'
-        if (!isNew && !isMeeting) continue
-        if (isNew) newLeads++
-        if (isMeeting) meetingsBooked++
+        newLeads++
         // Dia local: o relatório é lido no fuso de quem preenche, não em UTC.
         const day = format(new Date(ev.created_at), 'yyyy-MM-dd')
         const bucket = (byDay[day] ??= { newLeads: 0, meetingsBooked: 0 })
-        if (isNew) bucket.newLeads++
-        if (isMeeting) bucket.meetingsBooked++
+        bucket.newLeads++
       }
+      for (const m of booked ?? []) {
+        const day = format(new Date(m.created_at), 'yyyy-MM-dd')
+        const bucket = (byDay[day] ??= { newLeads: 0, meetingsBooked: 0 })
+        bucket.meetingsBooked++
+      }
+
+      // Lançamento manual soma ao total E ao dia certo — sem isso, o número do topo
+      // (com manual) não batia com a soma das linhas da grade abaixo (que já mostrava
+      // o manual separado).
+      const { byProfile: manual, rows: manualRows } = await fetchManualByProfile(range)
+      for (const r of manualRows) {
+        if (r.profile_id !== profileId || !r.agendamentos) continue
+        const bucket = (byDay[r.date] ??= { newLeads: 0, meetingsBooked: 0 })
+        bucket.meetingsBooked += r.agendamentos
+      }
+      const meetingsBooked = (booked?.length ?? 0) + (manual.get(profileId!)?.agendamentos ?? 0)
 
       // Snapshot atual do pipeline (leads do próprio pré-vendedor).
       const { data: allLeads, error: pipelineError } = await supabase

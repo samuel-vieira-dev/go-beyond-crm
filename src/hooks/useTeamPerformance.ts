@@ -43,57 +43,6 @@ export function useOperationBreakdown() {
   })
 }
 
-export interface PresalesPerformance {
-  profileId: string
-  fullName: string
-  meetingsBooked: number
-  meetingsHeld: number
-  meetingsNoShow: number
-  attendanceRate: number
-  noShowRate: number
-}
-
-export function usePresalesPerformance(range: DateRange) {
-  useRealtimeInvalidate('presales-perf-rt', ['meetings', 'leads', 'social_metrics'], [['team-performance', 'presales']])
-  return useQuery({
-    queryKey: ['team-performance', 'presales', range],
-    queryFn: async (): Promise<PresalesPerformance[]> => {
-      const { data: presalers, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, full_name')
-        .in('role', ['sdr', 'social_seller'])
-        .eq('active', true)
-      if (profilesError) throw profilesError
-
-      const { data: meetings, error: meetingsError } = await supabase
-        .from('meetings')
-        .select('booked_by, status')
-        .gte('scheduled_at', range.from)
-        .lte('scheduled_at', range.to)
-      if (meetingsError) throw meetingsError
-
-      const { byProfile: manual } = await fetchManualByProfile(range)
-
-      return (presalers ?? []).map((p) => {
-        const mine = (meetings ?? []).filter((m) => m.booked_by === p.id)
-        const extra = manual.get(p.id)
-        const held = mine.filter((m) => m.status === 'realizada').length + (extra?.reunioes_realizadas ?? 0)
-        const noShow = mine.filter((m) => m.status === 'nao_compareceu').length + (extra?.no_shows ?? 0)
-        const resolved = held + noShow
-        return {
-          profileId: p.id,
-          fullName: p.full_name,
-          meetingsBooked: mine.length + (extra?.agendamentos ?? 0),
-          meetingsHeld: held,
-          meetingsNoShow: noShow,
-          attendanceRate: resolved > 0 ? (held / resolved) * 100 : 0,
-          noShowRate: resolved > 0 ? (noShow / resolved) * 100 : 0,
-        }
-      })
-    },
-  })
-}
-
 export interface CloserPerformance {
   profileId: string
   fullName: string
