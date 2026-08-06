@@ -57,8 +57,6 @@ export function AdminKanbanPage() {
         <p className="text-sm text-white/40">Funil unificado de pré-venda e fechamento</p>
       </div>
 
-      <OperationBreakdownPanel />
-
       <LeadFiltersBar
         filters={filters}
         onChange={setFilters}
@@ -95,6 +93,8 @@ export function AdminKanbanPage() {
           </>
         }
       />
+
+      <OperationBreakdownPanel />
 
       {isLoading ? (
         <p className="text-sm text-white/40">Carregando operação...</p>

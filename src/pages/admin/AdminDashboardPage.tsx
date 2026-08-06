@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { startOfDay, subDays } from 'date-fns'
+import { endOfMonth, startOfMonth } from 'date-fns'
 import { StatCard } from '@/components/ui/StatCard'
 import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import { RefreshButton } from '@/components/ui/RefreshButton'
@@ -11,8 +11,8 @@ const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: '
 
 export function AdminDashboardPage() {
   const [range, setRange] = useState<DateRange>({
-    from: startOfDay(subDays(new Date(), 29)).toISOString(),
-    to: new Date().toISOString(),
+    from: startOfMonth(new Date()).toISOString(),
+    to: endOfMonth(new Date()).toISOString(),
   })
   const { data, isLoading, isFetching, refetch } = useFunnelMetrics(range)
   const { data: channels } = useChannelSales(range)
@@ -28,7 +28,7 @@ export function AdminDashboardPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="month" />
           <RefreshButton onClick={() => refetch()} loading={isFetching} />
         </div>
       </div>

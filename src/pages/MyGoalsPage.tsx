@@ -65,7 +65,7 @@ export function MyGoalsPage() {
           <p className="text-sm text-white/40">Metas definidas pela gestão e o seu realizado</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="month" />
           <RefreshButton />
         </div>
       </div>

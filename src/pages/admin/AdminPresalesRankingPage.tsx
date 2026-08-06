@@ -30,7 +30,7 @@ export function AdminPresalesRankingPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="month" />
           <RefreshButton />
         </div>
       </div>

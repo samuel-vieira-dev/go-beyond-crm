@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { startOfDay, subDays } from 'date-fns'
+import { endOfMonth, startOfMonth } from 'date-fns'
 import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import { RefreshButton } from '@/components/ui/RefreshButton'
 import { ConversionStep } from '@/components/charts/ConversionStep'
@@ -7,8 +7,8 @@ import { useFunnelMetrics, type DateRange } from '@/hooks/useFunnelMetrics'
 
 export function AdminConversionsPage() {
   const [range, setRange] = useState<DateRange>({
-    from: startOfDay(subDays(new Date(), 29)).toISOString(),
-    to: new Date().toISOString(),
+    from: startOfMonth(new Date()).toISOString(),
+    to: endOfMonth(new Date()).toISOString(),
   })
   const { data, isLoading, isFetching, refetch } = useFunnelMetrics(range)
 
@@ -20,7 +20,7 @@ export function AdminConversionsPage() {
           <p className="text-sm text-white/40">Quanto passa de uma etapa para a próxima</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="month" />
           <RefreshButton onClick={() => refetch()} loading={isFetching} />
         </div>
       </div>

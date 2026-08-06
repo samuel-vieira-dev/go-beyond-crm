@@ -4,13 +4,12 @@ import { Button } from './Button'
 import { Input } from './Field'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
 
-type Preset = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom'
+type Preset = 'today' | 'yesterday' | '7d' | 'month' | 'custom'
 
 const PRESETS: { key: Preset; label: string }[] = [
   { key: 'today', label: 'Hoje' },
   { key: 'yesterday', label: 'Ontem' },
   { key: '7d', label: '7 dias' },
-  { key: '30d', label: '30 dias' },
   { key: 'month', label: 'Este mês' },
   { key: 'custom', label: 'Personalizado' },
 ]
@@ -26,8 +25,6 @@ function rangeForPreset(preset: Preset): DateRange {
     }
     case '7d':
       return { from: startOfDay(subDays(now, 6)).toISOString(), to: endOfDay(now).toISOString() }
-    case '30d':
-      return { from: startOfDay(subDays(now, 29)).toISOString(), to: endOfDay(now).toISOString() }
     case 'month':
       return { from: startOfMonth(now).toISOString(), to: endOfMonth(now).toISOString() }
     default:
@@ -38,7 +35,7 @@ function rangeForPreset(preset: Preset): DateRange {
 export function DateRangePicker({
   value,
   onChange,
-  defaultPreset = '30d',
+  defaultPreset = 'month',
 }: {
   value: DateRange
   onChange: (range: DateRange) => void
@@ -105,7 +102,6 @@ export function rangeLabel(range: DateRange): string {
   if (sameRange(rangeForPreset('today'))) return 'hoje'
   if (sameRange(rangeForPreset('yesterday'))) return 'ontem'
   if (sameRange(rangeForPreset('7d'))) return 'últimos 7 dias'
-  if (sameRange(rangeForPreset('30d'))) return 'últimos 30 dias'
   if (sameRange(rangeForPreset('month'))) return 'este mês'
 
   const fromLabel = format(from, 'dd/MM/yyyy')

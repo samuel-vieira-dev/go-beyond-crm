@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { Button } from './Button'
+import { isChunkLoadError, reloadOnChunkError } from '@/lib/chunkReload'
 
 /**
  * Sem isto, qualquer erro em render derruba a árvore inteira do React e a pessoa
@@ -15,6 +16,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error('[ErrorBoundary]', error, info.componentStack)
+    if (isChunkLoadError(error)) reloadOnChunkError()
   }
 
   render() {

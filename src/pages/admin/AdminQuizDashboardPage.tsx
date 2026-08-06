@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { startOfDay, subDays } from 'date-fns'
+import { endOfMonth, startOfMonth } from 'date-fns'
 import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import { RefreshButton } from '@/components/ui/RefreshButton'
 import { Button } from '@/components/ui/Button'
@@ -50,8 +50,8 @@ export type QuizId = keyof typeof QUIZZES
 export function AdminQuizDashboardPage({ quiz = 'link-bio' }: { quiz?: QuizId }) {
   const config = QUIZZES[quiz]
   const [range, setRange] = useState<DateRange>({
-    from: startOfDay(subDays(new Date(), 29)).toISOString(),
-    to: new Date().toISOString(),
+    from: startOfMonth(new Date()).toISOString(),
+    to: endOfMonth(new Date()).toISOString(),
   })
   const { data, isLoading } = useQuizAnalytics(range, quiz)
   const { data: leads } = useQuizLeads(range, quiz)
@@ -78,7 +78,7 @@ export function AdminQuizDashboardPage({ quiz = 'link-bio' }: { quiz?: QuizId })
           <p className="text-sm text-white/40">Views e cliques por tela · funil de conversão</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="month" />
           <Button
             variant="secondary"
             disabled={!leads || leads.length === 0}

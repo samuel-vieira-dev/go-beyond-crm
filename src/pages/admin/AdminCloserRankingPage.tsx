@@ -36,7 +36,7 @@ export function AdminCloserRankingPage() {
           <p className="text-sm text-white/40">Vendas, faturamento e projeção da equipe</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="month" />
           <RefreshButton onClick={() => refetch()} loading={isFetching} />
         </div>
       </div>
