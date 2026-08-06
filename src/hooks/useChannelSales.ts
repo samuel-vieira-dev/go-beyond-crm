@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
+import { fetchManualByProfile } from './useManualMetrics'
 import { fetchManualSales } from './useManualSales'
 import type { DateRange } from './useFunnelMetrics'
 import { CHANNEL_TAGS } from '@/types/domain'
@@ -14,7 +15,7 @@ export interface ChannelRow {
 
 /** Vendas e faturamento por canal de origem (tag do lead). */
 export function useChannelSales(range: DateRange) {
-  useRealtimeInvalidate('channel-sales-rt', ['leads', 'sales', 'manual_sales'], [['channel-sales']])
+  useRealtimeInvalidate('channel-sales-rt', ['leads', 'sales', 'manual_sales', 'social_metrics'], [['channel-sales']])
 
   return useQuery({
     queryKey: ['channel-sales', range],
@@ -48,11 +49,38 @@ export function useChannelSales(range: DateRange) {
         r.receita += Number(s.amount)
       }
 
-      // Venda sem card carrega o canal nela mesma (não há lead de onde herdar a tag).
-      for (const s of await fetchManualSales(range)) {
+      // Venda sem card: o TOTAL é o que a pessoa lançou no relatório do dia, e
+      // manual_sales só diz de qual canal veio cada parte dele. Somar manual_sales
+      // direto contaria em dobro; somar só o total jogaria tudo em "Sem canal".
+      // Então atribui o que está identificado e manda a sobra para "Sem canal".
+      const [{ byProfile: manual }, atribuidas] = await Promise.all([
+        fetchManualByProfile(range),
+        fetchManualSales(range),
+      ])
+
+      let totalManual = 0
+      let totalManualVendas = 0
+      for (const t of manual.values()) {
+        totalManual += t.faturamento
+        totalManualVendas += t.vendas
+      }
+
+      let identificado = 0
+      let identificadas = 0
+      for (const s of atribuidas) {
         const r = get(s.channel ?? 'Sem canal')
         r.vendas++
         r.receita += Number(s.amount)
+        identificado += Number(s.amount)
+        identificadas++
+      }
+
+      const sobra = totalManual - identificado
+      const sobraVendas = totalManualVendas - identificadas
+      if (sobra > 0.01 || sobraVendas > 0) {
+        const r = get('Sem canal')
+        r.vendas += Math.max(sobraVendas, 0)
+        r.receita += Math.max(sobra, 0)
       }
 
       return [...rows.values()].sort((a, b) => b.receita - a.receita)

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { format, startOfDay } from 'date-fns'
+import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useAuth } from '@/context/AuthContext'
 import { useCloserDailyReport } from '@/hooks/useDailyReport'
@@ -7,7 +7,7 @@ import type { DateRange } from '@/hooks/useFunnelMetrics'
 import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
 import { RefreshButton } from '@/components/ui/RefreshButton'
-import { DateRangePicker } from '@/components/ui/DateRangePicker'
+import { DateRangePicker, rangeForPreset } from '@/components/ui/DateRangePicker'
 import { ManualMetricsPanel } from '@/components/metrics/ManualMetricsPanel'
 import { CloserSalesPanel } from '@/components/metrics/CloserSalesPanel'
 
@@ -23,10 +23,9 @@ const STATUS: Record<string, { label: string; tone: 'gold' | 'green' | 'red' | '
 
 export function CloserReportPage() {
   const { profile } = useAuth()
-  const [range, setRange] = useState<DateRange>({
-    from: startOfDay(new Date()).toISOString(),
-    to: new Date().toISOString(),
-  })
+  // Abre em 7 dias, igual ao relatório de pré-venda: a grade editável só faz
+  // sentido mostrando a semana.
+  const [range, setRange] = useState<DateRange>(() => rangeForPreset('7d'))
   const { data, isLoading, isFetching, refetch } = useCloserDailyReport(profile?.id ?? null, range)
 
   const ticketMedio = data && data.sales > 0 ? data.revenue / data.sales : 0
@@ -39,7 +38,7 @@ export function CloserReportPage() {
           <p className="text-sm text-white/40 capitalize">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} />
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="7d" />
           <RefreshButton onClick={() => refetch()} loading={isFetching} />
         </div>
       </div>

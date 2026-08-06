@@ -21,8 +21,9 @@ export function PresalesReport({
   manualPanel?: (range: DateRange) => React.ReactNode
 }) {
   const { profile } = useAuth()
-  // Abre em "Hoje" — mesmo range do preset, para o botão aceso bater com os dados.
-  const [range, setRange] = useState<DateRange>(() => rangeForPreset('today'))
+  // Abre em 7 dias: a grade do relatório precisa mostrar a semana inteira para a
+  // pessoa ver de cara qual dia ficou sem lançamento.
+  const [range, setRange] = useState<DateRange>(() => rangeForPreset('7d'))
   const { data, isLoading, isFetching, refetch } = usePresalesDailyReport(profile?.id ?? null, range)
 
   return (
@@ -33,7 +34,7 @@ export function PresalesReport({
           <p className="text-sm text-white/40 capitalize">{format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <DateRangePicker value={range} onChange={setRange} defaultPreset="today" />
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="7d" />
           <RefreshButton onClick={() => refetch()} loading={isFetching} />
         </div>
       </div>

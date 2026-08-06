@@ -95,6 +95,9 @@ export interface ManualMetrics {
   agendamentos: number
   reunioes_realizadas: number
   no_shows: number
+  vendas: number
+  /** Valor negociado no dia, não o preço de tabela do produto. */
+  faturamento: number
   nota: string | null
   updated_at: string
 }

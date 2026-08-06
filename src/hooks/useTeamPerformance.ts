@@ -2,7 +2,6 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
 import { fetchManualByProfile } from './useManualMetrics'
-import { fetchManualSales } from './useManualSales'
 import type { DateRange } from './useFunnelMetrics'
 
 export interface OperationBreakdown {
@@ -116,7 +115,7 @@ export interface CloserPerformanceResult {
 }
 
 export function useCloserPerformance(range: DateRange) {
-  useRealtimeInvalidate('closer-perf-rt', ['sales', 'meetings', 'manual_sales'], [['team-performance', 'closers']])
+  useRealtimeInvalidate('closer-perf-rt', ['sales', 'meetings', 'social_metrics'], [['team-performance', 'closers']])
   return useQuery({
     queryKey: ['team-performance', 'closers', range],
     queryFn: async (): Promise<CloserPerformanceResult> => {
@@ -152,36 +151,40 @@ export function useCloserPerformance(range: DateRange) {
       }
       // Vendas fechadas fora do kanban entram no mesmo ranking — senão o closer que
       // opera no WhatsApp aparece zerado ao lado de quem registra card.
-      const manual = await fetchManualSales(range)
-      for (const s of manual) {
+      const { rows: manualRows, byProfile: manual } = await fetchManualByProfile(range)
+      for (const [profileId, totals] of manual) {
+        if (totals.vendas === 0 && totals.faturamento === 0) continue
         const existing =
-          perfById.get(s.closer_id) ??
-          { profileId: s.closer_id, fullName: nameById.get(s.closer_id) ?? 'Sem closer', sales: 0, revenue: 0 }
-        existing.sales += 1
-        existing.revenue += Number(s.amount)
-        perfById.set(s.closer_id, existing)
+          perfById.get(profileId) ??
+          { profileId, fullName: nameById.get(profileId) ?? 'Sem closer', sales: 0, revenue: 0 }
+        existing.sales += totals.vendas
+        existing.revenue += totals.faturamento
+        perfById.set(profileId, existing)
       }
 
       const byCloser = Array.from(perfById.values())
 
       const dailyMap = new Map<string, DailyPoint>()
-      const addDay = (day: string, amount: number) => {
+      const addDay = (day: string, count: number, amount: number) => {
         const point = dailyMap.get(day) ?? { date: day, sales: 0, revenue: 0 }
-        point.sales += 1
+        point.sales += count
         point.revenue += amount
         dailyMap.set(day, point)
       }
-      for (const s of sales ?? []) addDay(s.sold_at.slice(0, 10), Number(s.amount))
-      for (const s of manual) addDay(s.sold_on.slice(0, 10), Number(s.amount))
+      for (const s of sales ?? []) addDay(s.sold_at.slice(0, 10), 1, Number(s.amount))
+      for (const r of manualRows) {
+        if (r.vendas || r.faturamento) addDay(r.date, r.vendas ?? 0, Number(r.faturamento ?? 0))
+      }
       const daily = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date))
 
-      const sum = (rows: { amount: number | string }[]) => rows.reduce((t, r) => t + Number(r.amount), 0)
+      const manualSales = manualRows.reduce((t, r) => t + (r.vendas ?? 0), 0)
+      const manualRevenue = manualRows.reduce((t, r) => t + Number(r.faturamento ?? 0), 0)
 
       return {
         byCloser,
         daily,
-        totalSales: (sales?.length ?? 0) + manual.length,
-        totalRevenue: sum(sales ?? []) + sum(manual),
+        totalSales: (sales?.length ?? 0) + manualSales,
+        totalRevenue: (sales ?? []).reduce((t, s) => t + Number(s.amount), 0) + manualRevenue,
       }
     },
   })

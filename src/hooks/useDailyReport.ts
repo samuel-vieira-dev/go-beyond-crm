@@ -3,7 +3,6 @@ import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
 import { fetchManualByProfile } from './useManualMetrics'
-import { fetchManualSales } from './useManualSales'
 import type { DateRange } from './useFunnelMetrics'
 import type { LeadStage } from '@/types/domain'
 
@@ -94,7 +93,7 @@ export interface DayMeeting {
 export function useCloserDailyReport(profileId: string | null, range: DateRange) {
   useRealtimeInvalidate(
     'closer-report-rt',
-    ['leads', 'meetings', 'sales', 'social_metrics', 'manual_sales'],
+    ['leads', 'meetings', 'sales', 'social_metrics'],
     [['daily-report', 'closer']],
   )
 
@@ -129,19 +128,13 @@ export function useCloserDailyReport(profileId: string | null, range: DateRange)
       }[]
 
       // Reuniões e vendas que aconteceram sem card entram no mesmo relatório.
-      const [{ byProfile: manual }, manualSales] = await Promise.all([
-        fetchManualByProfile(range),
-        fetchManualSales(range),
-      ])
+      const { byProfile: manual } = await fetchManualByProfile(range)
       const extra = manual.get(profileId!)
-      const myManualSales = manualSales.filter((s) => s.closer_id === profileId)
 
       const meetingsHeld = rows.filter((m) => m.status === 'realizada').length + (extra?.reunioes_realizadas ?? 0)
       const noShow = rows.filter((m) => m.status === 'nao_compareceu').length + (extra?.no_shows ?? 0)
-      const revenue =
-        (sales ?? []).reduce((sum, s) => sum + Number(s.amount), 0) +
-        myManualSales.reduce((sum, s) => sum + Number(s.amount), 0)
-      const salesCount = (sales?.length ?? 0) + myManualSales.length
+      const revenue = (sales ?? []).reduce((sum, s) => sum + Number(s.amount), 0) + (extra?.faturamento ?? 0)
+      const salesCount = (sales?.length ?? 0) + (extra?.vendas ?? 0)
 
       return {
         meetingsScheduled: rows.length + (extra?.agendamentos ?? 0),

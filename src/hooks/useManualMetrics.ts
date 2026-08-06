@@ -27,26 +27,48 @@ export const MANUAL_FIELDS = [
   'agendamentos',
   'reunioes_realizadas',
   'no_shows',
+  'vendas',
+  'faturamento',
 ] as const
 
 export type ManualField = (typeof MANUAL_FIELDS)[number]
 
+/** Rótulo curto: é cabeçalho de coluna numa grade apertada, não legenda de formulário. */
 export const MANUAL_FIELD_LABELS: Record<ManualField, string> = {
   ativacoes: 'Ativações',
-  conversas: 'Conversas em condução',
-  mqls: 'Qualificados (MQL)',
-  ofertas: 'Ofertas de reunião',
+  conversas: 'Conversas',
+  mqls: 'Qualificados',
+  ofertas: 'Ofertas',
   follow_ups: 'Follow-ups',
   agendamentos: 'Agendamentos',
-  reunioes_realizadas: 'Reuniões realizadas',
+  reunioes_realizadas: 'Realizadas',
   no_shows: 'No-shows',
+  vendas: 'Vendas',
+  faturamento: 'Faturamento',
 }
 
-/** Quem lança o quê: SDR e social seller trabalham topo de funil, closer o fundo. */
+/** Explicação que aparece ao passar o mouse no cabeçalho — some a dúvida sem poluir. */
+export const MANUAL_FIELD_HINTS: Record<ManualField, string> = {
+  ativacoes: 'Contatos abordados no dia',
+  conversas: 'Conversas em condução',
+  mqls: 'Leads qualificados (MQL)',
+  ofertas: 'Ofertas de reunião feitas',
+  follow_ups: 'Follow-ups realizados',
+  agendamentos: 'Reuniões marcadas',
+  reunioes_realizadas: 'Reuniões que aconteceram',
+  no_shows: 'Lead não compareceu',
+  vendas: 'Vendas fechadas',
+  faturamento: 'Valor negociado, não o preço de tabela',
+}
+
+/** Faturamento é dinheiro: formata e edita diferente do resto, que é contagem. */
+export const MONEY_FIELDS: ManualField[] = ['faturamento']
+
+/** Quem lança o quê: pré-venda preenche o topo do funil, closer o fundo. */
 export const FIELDS_BY_ROLE: Record<string, ManualField[]> = {
   social_seller: ['ativacoes', 'conversas', 'mqls', 'ofertas', 'follow_ups', 'agendamentos'],
   sdr: ['mqls', 'ofertas', 'follow_ups', 'agendamentos'],
-  closer: ['reunioes_realizadas', 'no_shows'],
+  closer: ['agendamentos', 'reunioes_realizadas', 'no_shows', 'vendas', 'faturamento'],
   admin: [...MANUAL_FIELDS],
 }
 
@@ -62,6 +84,8 @@ export function emptyTotals(): ManualTotals {
     agendamentos: 0,
     reunioes_realizadas: 0,
     no_shows: 0,
+    vendas: 0,
+    faturamento: 0,
   }
 }
 
@@ -114,6 +138,57 @@ export function useMyManualMetrics(range: DateRange) {
   })
 }
 
+/** Queries que um lançamento manual invalida: ranking, funil e relatório ao mesmo tempo. */
+const AFFECTED_KEYS = [
+  ['manual-metrics'],
+  ['presales-split'],
+  ['team-performance'],
+  ['daily-report'],
+  ['funnel-metrics'],
+  ['channel-sales'],
+]
+
+/**
+ * Salva UM campo de UM dia — o que a grade editável precisa.
+ *
+ * O upsert só manda a coluna alterada: se a linha do dia ainda não existe ela nasce
+ * com o resto zerado, e se já existe nenhum outro número é tocado. Sem isso, dois
+ * campos salvos em sequência sobrescreveriam um ao outro.
+ */
+export function useSaveManualField() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({
+      date,
+      field,
+      value,
+      profileId,
+    }: {
+      /** "yyyy-MM-dd" — a grade já trabalha em dia local. */
+      date: string
+      field: ManualField
+      value: number
+      profileId?: string
+    }) => {
+      const { error } = await supabase.from(MANUAL_METRICS_TABLE).upsert(
+        {
+          profile_id: profileId ?? profile!.id,
+          date,
+          [field]: value,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'profile_id,date' },
+      )
+      if (error) throw error
+    },
+    onSuccess: () => {
+      for (const key of AFFECTED_KEYS) queryClient.invalidateQueries({ queryKey: key })
+    },
+  })
+}
+
 export function useSaveManualMetrics() {
   const queryClient = useQueryClient()
   const { profile } = useAuth()
@@ -144,16 +219,7 @@ export function useSaveManualMetrics() {
       if (error) throw error
     },
     onSuccess: () => {
-      // Um lançamento manual muda ranking, funil e relatório ao mesmo tempo.
-      for (const key of [
-        ['manual-metrics'],
-        ['presales-split'],
-        ['team-performance'],
-        ['daily-report'],
-        ['funnel-metrics'],
-      ]) {
-        queryClient.invalidateQueries({ queryKey: key })
-      }
+      for (const key of AFFECTED_KEYS) queryClient.invalidateQueries({ queryKey: key })
     },
   })
 }

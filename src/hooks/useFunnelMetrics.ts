@@ -2,7 +2,6 @@ import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { fetchManualByProfile } from './useManualMetrics'
-import { fetchManualSales } from './useManualSales'
 
 export interface DateRange {
   from: string
@@ -24,7 +23,7 @@ export function useFunnelMetrics(range: DateRange) {
 
   useEffect(() => {
     const channel = supabase.channel('admin-funnel-changes')
-    for (const table of ['leads', 'meetings', 'sales', 'social_metrics', 'manual_sales']) {
+    for (const table of ['leads', 'meetings', 'sales', 'social_metrics']) {
       channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => {
         queryClient.invalidateQueries({ queryKey: ['funnel-metrics'] })
       })
@@ -72,25 +71,22 @@ export function useFunnelMetrics(range: DateRange) {
 
       // O funil da gestão precisa mostrar a operação inteira, não só a parte que
       // virou card. Soma o que foi lançado à mão em cada etapa.
-      const [{ byProfile: manual }, manualSales] = await Promise.all([
-        fetchManualByProfile(range),
-        fetchManualSales(range),
-      ])
+      const { byProfile: manual } = await fetchManualByProfile(range)
       const totals = [...manual.values()].reduce(
         (acc, t) => ({
           qualified: acc.qualified + t.mqls,
           scheduled: acc.scheduled + t.agendamentos,
           held: acc.held + t.reunioes_realizadas,
           noShow: acc.noShow + t.no_shows,
+          sales: acc.sales + t.vendas,
+          revenue: acc.revenue + t.faturamento,
         }),
-        { qualified: 0, scheduled: 0, held: 0, noShow: 0 },
+        { qualified: 0, scheduled: 0, held: 0, noShow: 0, sales: 0, revenue: 0 },
       )
 
       const meetingsHeld = (meetingsRes.data ?? []).filter((m) => m.status === 'realizada').length
       const meetingsNoShow = (meetingsRes.data ?? []).filter((m) => m.status === 'nao_compareceu').length
-      const revenue =
-        (salesRes.data ?? []).reduce((sum, s) => sum + Number(s.amount), 0) +
-        manualSales.reduce((sum, s) => sum + Number(s.amount), 0)
+      const revenue = (salesRes.data ?? []).reduce((sum, s) => sum + Number(s.amount), 0) + totals.revenue
 
       return {
         // "leads" continua sendo só card: lançamento manual é de etapa, não de lead —
@@ -100,7 +96,7 @@ export function useFunnelMetrics(range: DateRange) {
         scheduled: (scheduledRes.count ?? 0) + totals.scheduled,
         meetingsHeld: meetingsHeld + totals.held,
         meetingsNoShow: meetingsNoShow + totals.noShow,
-        sales: (salesRes.data?.length ?? 0) + manualSales.length,
+        sales: (salesRes.data?.length ?? 0) + totals.sales,
         revenue,
       }
     },
