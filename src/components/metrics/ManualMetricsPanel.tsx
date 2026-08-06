@@ -86,7 +86,7 @@ export function ManualMetricsPanel({ range }: { range: DateRange }) {
           <table className="w-full min-w-[560px] border-separate border-spacing-0 text-sm">
             <thead>
               <tr className="text-left text-[11px] text-white/40">
-                <th className="sticky left-0 z-10 bg-navy-950/90 py-2 pr-3 font-medium backdrop-blur-sm">Dia</th>
+                <th className="whitespace-nowrap py-2 pr-3 font-medium">Dia</th>
                 {fields.map((f) => (
                   <th key={f} className="py-2 pr-1 text-right font-medium" title={MANUAL_FIELD_HINTS[f]}>
                     {MANUAL_FIELD_LABELS[f]}
@@ -107,7 +107,7 @@ export function ManualMetricsPanel({ range }: { range: DateRange }) {
             </tbody>
             <tfoot>
               <tr className="text-[11px] text-white/50">
-                <td className="sticky left-0 z-10 whitespace-nowrap border-t border-white/10 bg-navy-950/90 py-2 pr-3 font-medium backdrop-blur-sm">
+                <td className="whitespace-nowrap border-t border-white/10 py-2 pr-3 font-medium">
                   Total · {rangeLabel(range)}
                 </td>
                 {fields.map((f) => (
@@ -154,7 +154,7 @@ function DayRow({
 
   return (
     <tr className={cn('group transition-colors hover:bg-white/[0.03]', hoje && 'bg-gold-500/[0.07]')}>
-      <td className="sticky left-0 z-10 whitespace-nowrap border-t border-white/5 bg-navy-950/90 py-1 pr-3 backdrop-blur-sm">
+      <td className="whitespace-nowrap border-t border-white/5 py-1 pr-3">
         <span className={cn('capitalize', hoje ? 'text-white' : weekend ? 'text-white/35' : 'text-white/70')}>
           {format(date, "EEE, d 'de' MMM", { locale: ptBR })}
         </span>
