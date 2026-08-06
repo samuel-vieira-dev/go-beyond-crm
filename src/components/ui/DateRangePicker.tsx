@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { endOfDay, endOfMonth, parseISO, startOfDay, startOfMonth, subDays } from 'date-fns'
+import { endOfDay, endOfMonth, format, parseISO, startOfDay, startOfMonth, subDays } from 'date-fns'
 import { Button } from './Button'
 import { Input } from './Field'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
 
-type Preset = 'today' | '7d' | '30d' | 'month' | 'custom'
+type Preset = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom'
 
 const PRESETS: { key: Preset; label: string }[] = [
   { key: 'today', label: 'Hoje' },
+  { key: 'yesterday', label: 'Ontem' },
   { key: '7d', label: '7 dias' },
   { key: '30d', label: '30 dias' },
   { key: 'month', label: 'Este mês' },
@@ -19,6 +20,10 @@ function rangeForPreset(preset: Preset): DateRange {
   switch (preset) {
     case 'today':
       return { from: startOfDay(now).toISOString(), to: endOfDay(now).toISOString() }
+    case 'yesterday': {
+      const yesterday = subDays(now, 1)
+      return { from: startOfDay(yesterday).toISOString(), to: endOfDay(yesterday).toISOString() }
+    }
     case '7d':
       return { from: startOfDay(subDays(now, 6)).toISOString(), to: endOfDay(now).toISOString() }
     case '30d':
@@ -64,7 +69,7 @@ export function DateRangePicker({
           <Input
             type="date"
             className="w-auto"
-            value={value.from.slice(0, 10)}
+            value={format(parseISO(value.from), 'yyyy-MM-dd')}
             onChange={(e) =>
               e.target.value && onChange({ ...value, from: startOfDay(parseISO(e.target.value)).toISOString() })
             }
@@ -73,7 +78,7 @@ export function DateRangePicker({
           <Input
             type="date"
             className="w-auto"
-            value={value.to.slice(0, 10)}
+            value={format(parseISO(value.to), 'yyyy-MM-dd')}
             onChange={(e) =>
               e.target.value && onChange({ ...value, to: endOfDay(parseISO(e.target.value)).toISOString() })
             }
