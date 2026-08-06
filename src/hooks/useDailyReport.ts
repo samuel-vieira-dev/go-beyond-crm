@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
+import { fetchManualByProfile } from './useManualMetrics'
+import { fetchManualSales } from './useManualSales'
 import type { DateRange } from './useFunnelMetrics'
 import type { LeadStage } from '@/types/domain'
 
@@ -90,7 +92,11 @@ export interface DayMeeting {
 
 /** Relatório do Closer para um período (hoje/semana/mês/personalizado). */
 export function useCloserDailyReport(profileId: string | null, range: DateRange) {
-  useRealtimeInvalidate('closer-report-rt', ['leads', 'meetings', 'sales'], [['daily-report', 'closer']])
+  useRealtimeInvalidate(
+    'closer-report-rt',
+    ['leads', 'meetings', 'sales', 'social_metrics', 'manual_sales'],
+    [['daily-report', 'closer']],
+  )
 
   return useQuery({
     queryKey: ['daily-report', 'closer', profileId, range],
@@ -122,13 +128,23 @@ export function useCloserDailyReport(profileId: string | null, range: DateRange)
         lead: { name: string } | null
       }[]
 
-      const meetingsHeld = rows.filter((m) => m.status === 'realizada').length
-      const noShow = rows.filter((m) => m.status === 'nao_compareceu').length
-      const revenue = (sales ?? []).reduce((sum, s) => sum + Number(s.amount), 0)
-      const salesCount = sales?.length ?? 0
+      // Reuniões e vendas que aconteceram sem card entram no mesmo relatório.
+      const [{ byProfile: manual }, manualSales] = await Promise.all([
+        fetchManualByProfile(range),
+        fetchManualSales(range),
+      ])
+      const extra = manual.get(profileId!)
+      const myManualSales = manualSales.filter((s) => s.closer_id === profileId)
+
+      const meetingsHeld = rows.filter((m) => m.status === 'realizada').length + (extra?.reunioes_realizadas ?? 0)
+      const noShow = rows.filter((m) => m.status === 'nao_compareceu').length + (extra?.no_shows ?? 0)
+      const revenue =
+        (sales ?? []).reduce((sum, s) => sum + Number(s.amount), 0) +
+        myManualSales.reduce((sum, s) => sum + Number(s.amount), 0)
+      const salesCount = (sales?.length ?? 0) + myManualSales.length
 
       return {
-        meetingsScheduled: rows.length,
+        meetingsScheduled: rows.length + (extra?.agendamentos ?? 0),
         meetingsHeld,
         noShow,
         sales: salesCount,

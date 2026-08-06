@@ -8,6 +8,8 @@ import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
 import { RefreshButton } from '@/components/ui/RefreshButton'
 import { DateRangePicker } from '@/components/ui/DateRangePicker'
+import { ManualMetricsPanel } from '@/components/metrics/ManualMetricsPanel'
+import { CloserSalesPanel } from '@/components/metrics/CloserSalesPanel'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -70,6 +72,10 @@ export function CloserReportPage() {
               }%`}
             />
           </div>
+
+          <ManualMetricsPanel range={range} />
+
+          {profile && <CloserSalesPanel range={range} closerId={profile.id} />}
 
           <div className="card-surface rounded-xl p-4">
             <h2 className="mb-3 text-sm font-semibold text-white">Reuniões no período</h2>

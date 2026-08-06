@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
+import { fetchManualSales } from './useManualSales'
 import type { DateRange } from './useFunnelMetrics'
 import { CHANNEL_TAGS } from '@/types/domain'
 
@@ -13,7 +14,7 @@ export interface ChannelRow {
 
 /** Vendas e faturamento por canal de origem (tag do lead). */
 export function useChannelSales(range: DateRange) {
-  useRealtimeInvalidate('channel-sales-rt', ['leads', 'sales'], [['channel-sales']])
+  useRealtimeInvalidate('channel-sales-rt', ['leads', 'sales', 'manual_sales'], [['channel-sales']])
 
   return useQuery({
     queryKey: ['channel-sales', range],
@@ -43,6 +44,13 @@ export function useChannelSales(range: DateRange) {
       for (const l of leads ?? []) get(l.form_tag ?? 'Sem canal').leads++
       for (const s of sales ?? []) {
         const r = get(tagById.get(s.lead_id) ?? 'Sem canal')
+        r.vendas++
+        r.receita += Number(s.amount)
+      }
+
+      // Venda sem card carrega o canal nela mesma (não há lead de onde herdar a tag).
+      for (const s of await fetchManualSales(range)) {
+        const r = get(s.channel ?? 'Sem canal')
         r.vendas++
         r.receita += Number(s.amount)
       }

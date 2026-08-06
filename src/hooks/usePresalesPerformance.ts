@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
 import type { DateRange } from './useFunnelMetrics'
+import type { ManualMetrics } from '@/types/database'
 
 export interface SdrRow {
   profileId: string
@@ -37,7 +38,7 @@ export function usePresalesPerformanceSplit(range: DateRange) {
           supabase.from('leads').select('owner_id, is_mql, stage, created_at').gte('created_at', from).lte('created_at', to),
           supabase.from('meetings').select('booked_by, closer_id, status, lead_id, scheduled_at').gte('scheduled_at', from).lte('scheduled_at', to),
           supabase.from('sales').select('lead_id, amount, sold_at').gte('sold_at', from).lte('sold_at', to),
-          supabase.from('social_metrics').select('profile_id, ativacoes, conversas').gte('date', from.slice(0, 10)).lte('date', to.slice(0, 10)),
+          supabase.from('social_metrics').select('*').gte('date', from.slice(0, 10)).lte('date', to.slice(0, 10)),
         ])
 
       // Quem agendou a reunião do lead → a venda é creditada a essa pessoa.
@@ -91,12 +92,23 @@ export function usePresalesPerformanceSplit(range: DateRange) {
         r.receita += Number(sale.amount)
       }
 
-      // Ativações e Conversas vêm do lançamento manual (acontecem no Business Suite).
-      for (const m of metrics ?? []) {
+      // Lançamento manual: o que aconteceu fora do kanban (Business Suite, WhatsApp,
+      // ou período anterior à adoção do CRM). SOMA ao que veio dos cards — quem
+      // trabalha nos dois lugares aparece com o total, não com metade.
+      for (const m of (metrics ?? []) as ManualMetrics[]) {
+        const r = row(m.profile_id)
+        if (!r) continue
+        r.qualificados += m.mqls ?? 0
+        r.agendamentos += m.agendamentos ?? 0
+        r.realizadas += m.reunioes_realizadas ?? 0
+        r.noShow += m.no_shows ?? 0
+
         const s = social.get(m.profile_id)
-        if (!s) continue
-        s.ativacoes += m.ativacoes
-        s.conversas += m.conversas
+        if (s) {
+          s.ativacoes += m.ativacoes ?? 0
+          s.conversas += m.conversas ?? 0
+          s.ofertas += m.ofertas ?? 0
+        }
       }
 
       return {

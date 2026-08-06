@@ -1,5 +1,5 @@
 import { PresalesReport } from '@/pages/presales/PresalesReport'
-import { SocialMetricsPanel } from './SocialMetricsPanel'
+import { ManualMetricsPanel } from '@/components/metrics/ManualMetricsPanel'
 import { SOCIAL_SELLER_COLUMNS } from '@/types/domain'
 
 export function SocialSellerReportPage() {
@@ -7,7 +7,7 @@ export function SocialSellerReportPage() {
     <PresalesReport
       title="Relatório — Social Seller"
       columns={SOCIAL_SELLER_COLUMNS}
-      socialPanel={(range) => <SocialMetricsPanel range={range} />}
+      manualPanel={(range) => <ManualMetricsPanel range={range} />}
     />
   )
 }

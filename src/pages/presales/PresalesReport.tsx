@@ -13,12 +13,12 @@ import { STAGE_LABELS, type BoardColumn } from '@/types/domain'
 export function PresalesReport({
   title,
   columns,
-  socialPanel,
+  manualPanel,
 }: {
   title: string
   columns: BoardColumn[]
-  /** Painel de lançamento manual (só Social Seller). */
-  socialPanel?: (range: DateRange) => React.ReactNode
+  /** Painel de lançamento manual dos números que não passaram pelo kanban. */
+  manualPanel?: (range: DateRange) => React.ReactNode
 }) {
   const { profile } = useAuth()
   // Abre em "Hoje" — mesmo range do preset, para o botão aceso bater com os dados.
@@ -38,7 +38,7 @@ export function PresalesReport({
         </div>
       </div>
 
-      {socialPanel?.(range)}
+      {manualPanel?.(range)}
 
       {isLoading || !data ? (
         <p className="text-sm text-white/40">Carregando relatório...</p>

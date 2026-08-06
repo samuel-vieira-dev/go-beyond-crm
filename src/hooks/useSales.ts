@@ -87,6 +87,48 @@ export function useRegisterSale() {
   })
 }
 
+/**
+ * Corrige uma venda já registrada.
+ *
+ * O closer tem margem de negociação: o valor fechado quase nunca é o default_price
+ * do produto, e às vezes o desconto só é acertado depois do registro. Sem isto, a
+ * única saída era apagar e refazer a venda — perdendo o vínculo com a reunião.
+ */
+export function useUpdateSale() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({ saleId, amount, productId }: { saleId: string; amount: number; productId?: string }) => {
+      const { data: sale, error } = await supabase
+        .from('sales')
+        .update({ amount, ...(productId ? { product_id: productId } : {}) })
+        .eq('id', saleId)
+        .select()
+        .single()
+      if (error) throw error
+
+      // Deixa rastro: valor de venda alterado é a informação que a gestão mais
+      // precisa auditar depois.
+      await supabase.from('lead_events').insert({
+        lead_id: sale.lead_id,
+        actor_id: profile?.id ?? null,
+        type: 'sale',
+        payload: { sale_id: saleId, amount, product_id: productId ?? sale.product_id, corrigida: true },
+      })
+
+      return sale
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sales'] })
+      queryClient.invalidateQueries({ queryKey: ['team-performance'] })
+      queryClient.invalidateQueries({ queryKey: ['daily-report'] })
+      queryClient.invalidateQueries({ queryKey: ['funnel-metrics'] })
+      queryClient.invalidateQueries({ queryKey: ['channel-sales'] })
+    },
+  })
+}
+
 /** Reunião realizada mas não vendeu: segue pra follow-up de fechamento ou é marcado como perdido. */
 export function useRegisterNoSale() {
   const queryClient = useQueryClient()

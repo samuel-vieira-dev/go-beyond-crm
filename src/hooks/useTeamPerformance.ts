@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
+import { fetchManualByProfile } from './useManualMetrics'
+import { fetchManualSales } from './useManualSales'
 import type { DateRange } from './useFunnelMetrics'
 
 export interface OperationBreakdown {
@@ -53,7 +55,7 @@ export interface PresalesPerformance {
 }
 
 export function usePresalesPerformance(range: DateRange) {
-  useRealtimeInvalidate('presales-perf-rt', ['meetings', 'leads'], [['team-performance', 'presales']])
+  useRealtimeInvalidate('presales-perf-rt', ['meetings', 'leads', 'social_metrics'], [['team-performance', 'presales']])
   return useQuery({
     queryKey: ['team-performance', 'presales', range],
     queryFn: async (): Promise<PresalesPerformance[]> => {
@@ -71,15 +73,18 @@ export function usePresalesPerformance(range: DateRange) {
         .lte('scheduled_at', range.to)
       if (meetingsError) throw meetingsError
 
+      const { byProfile: manual } = await fetchManualByProfile(range)
+
       return (presalers ?? []).map((p) => {
         const mine = (meetings ?? []).filter((m) => m.booked_by === p.id)
-        const held = mine.filter((m) => m.status === 'realizada').length
-        const noShow = mine.filter((m) => m.status === 'nao_compareceu').length
+        const extra = manual.get(p.id)
+        const held = mine.filter((m) => m.status === 'realizada').length + (extra?.reunioes_realizadas ?? 0)
+        const noShow = mine.filter((m) => m.status === 'nao_compareceu').length + (extra?.no_shows ?? 0)
         const resolved = held + noShow
         return {
           profileId: p.id,
           fullName: p.full_name,
-          meetingsBooked: mine.length,
+          meetingsBooked: mine.length + (extra?.agendamentos ?? 0),
           meetingsHeld: held,
           meetingsNoShow: noShow,
           attendanceRate: resolved > 0 ? (held / resolved) * 100 : 0,
@@ -111,7 +116,7 @@ export interface CloserPerformanceResult {
 }
 
 export function useCloserPerformance(range: DateRange) {
-  useRealtimeInvalidate('closer-perf-rt', ['sales', 'meetings'], [['team-performance', 'closers']])
+  useRealtimeInvalidate('closer-perf-rt', ['sales', 'meetings', 'manual_sales'], [['team-performance', 'closers']])
   return useQuery({
     queryKey: ['team-performance', 'closers', range],
     queryFn: async (): Promise<CloserPerformanceResult> => {
@@ -145,23 +150,38 @@ export function useCloserPerformance(range: DateRange) {
         existing.revenue += Number(s.amount)
         perfById.set(s.closer_id, existing)
       }
+      // Vendas fechadas fora do kanban entram no mesmo ranking — senão o closer que
+      // opera no WhatsApp aparece zerado ao lado de quem registra card.
+      const manual = await fetchManualSales(range)
+      for (const s of manual) {
+        const existing =
+          perfById.get(s.closer_id) ??
+          { profileId: s.closer_id, fullName: nameById.get(s.closer_id) ?? 'Sem closer', sales: 0, revenue: 0 }
+        existing.sales += 1
+        existing.revenue += Number(s.amount)
+        perfById.set(s.closer_id, existing)
+      }
+
       const byCloser = Array.from(perfById.values())
 
       const dailyMap = new Map<string, DailyPoint>()
-      for (const s of sales ?? []) {
-        const day = s.sold_at.slice(0, 10)
+      const addDay = (day: string, amount: number) => {
         const point = dailyMap.get(day) ?? { date: day, sales: 0, revenue: 0 }
         point.sales += 1
-        point.revenue += Number(s.amount)
+        point.revenue += amount
         dailyMap.set(day, point)
       }
+      for (const s of sales ?? []) addDay(s.sold_at.slice(0, 10), Number(s.amount))
+      for (const s of manual) addDay(s.sold_on.slice(0, 10), Number(s.amount))
       const daily = Array.from(dailyMap.values()).sort((a, b) => a.date.localeCompare(b.date))
+
+      const sum = (rows: { amount: number | string }[]) => rows.reduce((t, r) => t + Number(r.amount), 0)
 
       return {
         byCloser,
         daily,
-        totalSales: sales?.length ?? 0,
-        totalRevenue: (sales ?? []).reduce((sum, s) => sum + Number(s.amount), 0),
+        totalSales: (sales?.length ?? 0) + manual.length,
+        totalRevenue: sum(sales ?? []) + sum(manual),
       }
     },
   })

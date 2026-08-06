@@ -75,6 +75,45 @@ export interface SaleWithRelations extends Sale {
   lead?: Pick<Lead, 'id' | 'name'>
 }
 
+/**
+ * Números lançados à mão, por pessoa e por dia. Existe porque agendamento, reunião
+ * e no-show só nascem de um card no kanban — e boa parte da operação acontece fora
+ * dele (Business Suite, WhatsApp, período anterior à adoção do CRM). SOMA ao que
+ * vem de leads/meetings/sales; nunca substitui.
+ *
+ * A tabela se chama social_metrics por histórico: nasceu só para a social seller.
+ */
+export interface ManualMetrics {
+  id: string
+  profile_id: string
+  date: string
+  ativacoes: number
+  conversas: number
+  mqls: number
+  ofertas: number
+  follow_ups: number
+  agendamentos: number
+  reunioes_realizadas: number
+  no_shows: number
+  nota: string | null
+  updated_at: string
+}
+
+/** Venda fechada sem card no kanban. Espelha Sale, menos o lead_id. */
+export interface ManualSale {
+  id: string
+  closer_id: string
+  sold_on: string
+  product_id: string | null
+  product_name: string | null
+  channel: string | null
+  amount: number
+  nota: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type GoalMetric = 'agendamentos' | 'reunioes_realizadas' | 'vendas' | 'faturamento'
 
 export interface Goal {
