@@ -25,6 +25,12 @@ export interface Lead {
   utm: Record<string, unknown> | null
   form_tag: string | null
   approach_type: string | null
+  /**
+   * Lead descartado. Independente de `stage`: a etapa fica preservada para dizer
+   * ONDE a perda aconteceu, e o kanban esconde o card em vez de movê-lo.
+   */
+  is_lost: boolean
+  lost_at: string | null
   lost_reason: string | null
   notes: string | null
   created_at: string

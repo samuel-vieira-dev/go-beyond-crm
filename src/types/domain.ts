@@ -26,6 +26,8 @@ export type LeadEventType =
   | 'meeting_outcome'
   | 'sale'
   | 'claimed'
+  | 'lost'
+  | 'reopened'
 
 export const ROLE_LABELS: Record<Role, string> = {
   admin: 'Gestão',

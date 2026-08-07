@@ -48,10 +48,9 @@ function resolveResult(input: CloserQuickLeadInput): {
   if (input.attended === null) return { stage: 'reuniao_agendada', meetingStatus: 'agendada' }
   if (!input.attended) return { stage: 'reuniao_nao_realizada', meetingStatus: 'nao_compareceu' }
   if (input.sold) return { stage: 'venda_fechada', meetingStatus: 'realizada' }
-  return {
-    stage: input.outcome === 'lost' ? 'perdido' : 'follow_up_fechamento',
-    meetingStatus: 'realizada',
-  }
+  // Perdeu depois da reunião: a etapa registrada é onde ele parou (follow-up de
+  // fechamento) e a perda entra como flag — mesma regra do resto do CRM.
+  return { stage: 'follow_up_fechamento', meetingStatus: 'realizada' }
 }
 
 export function useCreateCloserQuickLead() {
@@ -78,7 +77,9 @@ export function useCreateCloserQuickLead() {
           owner_id: profile.id,
           closer_id: profile.id,
           notes: input.notes?.trim() || null,
+          is_lost: input.outcome === 'lost',
           lost_reason: input.outcome === 'lost' ? (input.lostReason ?? 'Outro') : null,
+          lost_at: input.outcome === 'lost' ? factAt : null,
           created_at: factAt,
         })
         .select()
@@ -176,6 +177,8 @@ export function useCreateCloserQuickLead() {
       queryClient.invalidateQueries({ queryKey: ['daily-report'] })
       queryClient.invalidateQueries({ queryKey: ['funnel-metrics'] })
       queryClient.invalidateQueries({ queryKey: ['team-performance'] })
+      queryClient.invalidateQueries({ queryKey: ['presales-split'] })
+      queryClient.invalidateQueries({ queryKey: ['realizado'] })
     },
   })
 }

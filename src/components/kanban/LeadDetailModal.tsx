@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { FormRow, Select, Textarea } from '@/components/ui/Field'
 import { useAuth } from '@/context/AuthContext'
-import { useAddLeadNote, useDeleteLead, useLead, useLeadEvents } from '@/hooks/useLeads'
+import { useAddLeadNote, useDeleteLead, useLead, useLeadEvents, useReopenLead } from '@/hooks/useLeads'
 import { useProfiles } from '@/hooks/useProfiles'
 import { useReassignCloser } from '@/hooks/useMeetings'
 import { useSendToClint } from '@/hooks/useQuizUpsellLeads'
 import { LeadEditModal } from './LeadEditModal'
+import { LostReasonModal } from './LostReasonModal'
 import { ActivitiesSection } from './ActivitiesSection'
 import { ORIGIN_LABELS, STAGE_LABELS } from '@/types/domain'
 import type { LeadWithRelations } from '@/types/database'
@@ -23,6 +24,8 @@ const EVENT_LABELS: Record<string, string> = {
   meeting_outcome: 'Resultado da reunião registrado',
   sale: 'Venda registrada',
   claimed: 'Lead assumido',
+  lost: 'Marcado como perdido',
+  reopened: 'Lead reaberto',
 }
 
 export function LeadDetailModal({
@@ -39,6 +42,7 @@ export function LeadDetailModal({
 }) {
   const { profile } = useAuth()
   const deleteLead = useDeleteLead()
+  const reopenLead = useReopenLead()
   const addNote = useAddLeadNote()
   const reassignCloser = useReassignCloser()
   const sendToClint = useSendToClint()
@@ -51,6 +55,7 @@ export function LeadDetailModal({
   const { data: events } = useLeadEvents(lead?.id ?? null)
   const [note, setNote] = useState('')
   const [editing, setEditing] = useState(false)
+  const [markingLost, setMarkingLost] = useState(false)
 
   const current = liveLead ?? lead
 
@@ -83,6 +88,9 @@ export function LeadDetailModal({
             <Badge tone="gold">{STAGE_LABELS[current.stage]}</Badge>
             <Badge tone="blue">{ORIGIN_LABELS[current.origin]}</Badge>
             {current.is_mql && <Badge tone="green">Qualificado</Badge>}
+            {current.is_lost && (
+              <Badge tone="red">Perdido{current.lost_reason ? ` · ${current.lost_reason}` : ''}</Badge>
+            )}
             <div className="ml-auto flex items-center gap-1.5">
               {sendToClintTag && whatsappDigits && (
                 <Button
@@ -211,12 +219,32 @@ export function LeadDetailModal({
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2 border-t border-white/10 pt-4">
+          <div className="flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
             {extraActions}
+            {current.is_lost ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                className="ml-auto"
+                disabled={reopenLead.isPending}
+                onClick={async () => {
+                  try {
+                    await reopenLead.mutateAsync(current.id)
+                  } catch {
+                    alert('Não foi possível reabrir o lead.')
+                  }
+                }}
+              >
+                ↩ Reabrir lead
+              </Button>
+            ) : (
+              <Button size="sm" variant="secondary" className="ml-auto" onClick={() => setMarkingLost(true)}>
+                🚫 Marcar como perdido
+              </Button>
+            )}
             <Button
               size="sm"
               variant="danger"
-              className="ml-auto"
               disabled={deleteLead.isPending}
               onClick={async () => {
                 if (!confirm(`Excluir o lead "${current.name}"? Esta ação não pode ser desfeita.`)) return
@@ -256,6 +284,14 @@ export function LeadDetailModal({
       <ActivitiesSection leadId={current.id} />
 
       <LeadEditModal lead={editing ? current : null} onClose={() => setEditing(false)} />
+
+      <LostReasonModal
+        lead={markingLost ? current : null}
+        onClose={() => setMarkingLost(false)}
+        // O card sai do board: manter o detalhe aberto mostraria um lead que já
+        // não está mais lá.
+        onSaved={onClose}
+      />
     </Modal>
   )
 }

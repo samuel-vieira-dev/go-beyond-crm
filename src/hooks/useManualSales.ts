@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
+import { localDay } from './useManualMetrics'
 import type { ManualSale } from '@/types/database'
 import type { DateRange } from './useFunnelMetrics'
 
@@ -17,6 +18,7 @@ const SALE_KEYS = [
   ['daily-report'],
   ['funnel-metrics'],
   ['channel-sales'],
+  ['realizado'],
 ]
 
 export interface ManualSaleInput {
@@ -37,7 +39,7 @@ export function useManualSales(filters: { closerId?: string; range?: DateRange }
       let q = supabase.from('manual_sales').select('*').order('sold_on', { ascending: false })
       if (filters.closerId) q = q.eq('closer_id', filters.closerId)
       if (filters.range) {
-        q = q.gte('sold_on', filters.range.from.slice(0, 10)).lte('sold_on', filters.range.to.slice(0, 10))
+        q = q.gte('sold_on', localDay(filters.range.from)).lte('sold_on', localDay(filters.range.to))
       }
       const { data, error } = await q
       if (error) throw error
@@ -51,8 +53,8 @@ export async function fetchManualSales(range: DateRange) {
   const { data, error } = await supabase
     .from('manual_sales')
     .select('closer_id, sold_on, channel, amount')
-    .gte('sold_on', range.from.slice(0, 10))
-    .lte('sold_on', range.to.slice(0, 10))
+    .gte('sold_on', localDay(range.from))
+    .lte('sold_on', localDay(range.to))
   if (error) throw error
   return (data ?? []) as Pick<ManualSale, 'closer_id' | 'sold_on' | 'channel' | 'amount'>[]
 }

@@ -7,7 +7,7 @@ import type { DateRange } from '@/hooks/useFunnelMetrics'
 import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
 import { RefreshButton } from '@/components/ui/RefreshButton'
-import { DateRangePicker, rangeForPreset } from '@/components/ui/DateRangePicker'
+import { DateRangePicker, rangeForPreset, rangeLabel } from '@/components/ui/DateRangePicker'
 import { ManualMetricsPanel } from '@/components/metrics/ManualMetricsPanel'
 import { CloserSalesPanel } from '@/components/metrics/CloserSalesPanel'
 
@@ -47,6 +47,12 @@ export function CloserReportPage() {
         <p className="text-sm text-white/40">Carregando relatório...</p>
       ) : (
         <>
+          {/* Estes são os mesmos números que a aba "Minhas Metas" mede, pela mesma
+              conta (kanban + o que for lançado na grade abaixo). */}
+          <p className="text-xs text-white/30">
+            Reuniões, realizadas, vendas e faturamento contam para as suas metas — kanban + o que você
+            lançar no relatório do dia, em {rangeLabel(range)}.
+          </p>
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
             <StatCard label="Reuniões" value={data.meetingsScheduled} />
             <StatCard label="Realizadas" value={data.meetingsHeld} accent />

@@ -16,6 +16,11 @@ export interface LeadFilters {
   ownerId?: string
   closerId?: string
   unassignedOnly?: boolean
+  /**
+   * Perdidos são escondidos por padrão (o card some da coluna em que estava).
+   * Ligado, INVERTE a consulta: mostra só os perdidos, cada um na sua etapa de origem.
+   */
+  lostOnly?: boolean
 }
 
 const LEAD_SELECT = '*, owner:profiles!leads_owner_id_fkey(id,full_name), closer:profiles!leads_closer_id_fkey(id,full_name)'
@@ -31,6 +36,9 @@ export function useLeads(filters: LeadFilters = {}) {
     queryKey: leadsQueryKey(filters),
     queryFn: async () => {
       let q = supabase.from('leads').select(LEAD_SELECT).order('created_at', { ascending: false })
+
+      // Sempre explícito: sem isto o board mostraria perdido e não-perdido juntos.
+      q = q.eq('is_lost', !!filters.lostOnly)
 
       if (filters.stages && filters.stages.length > 0) q = q.in('stage', filters.stages)
       if (filters.origin) q = q.eq('origin', filters.origin)
@@ -152,6 +160,67 @@ export function useUpdateLead() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
       queryClient.invalidateQueries({ queryKey: ['lead', variables.id] })
+    },
+  })
+}
+
+/**
+ * Marca o lead como perdido SEM mexer na etapa.
+ *
+ * A etapa fica preservada de propósito: é ela que diz onde a perda aconteceu
+ * (qualificação, no-show, follow-up de fechamento...). O card some do board porque
+ * `useLeads` filtra `is_lost = false`, não porque foi movido de coluna.
+ */
+export function useMarkLeadLost() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async ({ leadId, reason }: { leadId: string; reason: string }) => {
+      const { error } = await supabase
+        .from('leads')
+        .update({ is_lost: true, lost_reason: reason, lost_at: new Date().toISOString() })
+        .eq('id', leadId)
+      if (error) throw error
+
+      await supabase.from('lead_events').insert({
+        lead_id: leadId,
+        actor_id: profile?.id ?? null,
+        type: 'lost',
+        payload: { lost_reason: reason },
+      })
+    },
+    onSuccess: (_d, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['lead', variables.leadId] })
+      queryClient.invalidateQueries({ queryKey: ['lead-events', variables.leadId] })
+    },
+  })
+}
+
+/** Desfaz a perda: o lead volta a aparecer na coluna em que estava. */
+export function useReopenLead() {
+  const queryClient = useQueryClient()
+  const { profile } = useAuth()
+
+  return useMutation({
+    mutationFn: async (leadId: string) => {
+      const { error } = await supabase
+        .from('leads')
+        .update({ is_lost: false, lost_reason: null, lost_at: null })
+        .eq('id', leadId)
+      if (error) throw error
+
+      await supabase.from('lead_events').insert({
+        lead_id: leadId,
+        actor_id: profile?.id ?? null,
+        type: 'reopened',
+      })
+    },
+    onSuccess: (_d, leadId) => {
+      queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['lead', leadId] })
+      queryClient.invalidateQueries({ queryKey: ['lead-events', leadId] })
     },
   })
 }

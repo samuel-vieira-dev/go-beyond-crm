@@ -2,23 +2,28 @@ import { useState } from 'react'
 import { endOfMonth, startOfMonth } from 'date-fns'
 import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import { RefreshButton } from '@/components/ui/RefreshButton'
-import { GoalProgress } from '@/components/ui/GoalProgress'
+import { GoalProgressCard } from '@/components/metrics/GoalProgressCard'
+import { useRealizedRealtime } from '@/hooks/useRealized'
 import { usePresalesPerformanceSplit, type SdrRow, type SocialRow } from '@/hooks/usePresalesPerformance'
 import { useGoals } from '@/hooks/useGoals'
+import { localDay } from '@/hooks/useManualMetrics'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
 import type { Goal } from '@/types/database'
+import type { Role } from '@/types/domain'
 import { cn } from '@/lib/cn'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 const pct = (a: number, b: number) => (b > 0 ? `${((a / b) * 100).toFixed(0)}%` : '—')
 
 export function AdminPresalesRankingPage() {
+  useRealizedRealtime()
   const [range, setRange] = useState<DateRange>({
     from: startOfMonth(new Date()).toISOString(),
     to: endOfMonth(new Date()).toISOString(),
   })
   const { data, isLoading } = usePresalesPerformanceSplit(range)
-  const { data: goals } = useGoals({ activeOn: range.from.slice(0, 10) })
+  // Todas as metas que encostam no período — não só as vigentes no primeiro dia dele.
+  const { data: goals } = useGoals({ overlapping: { from: localDay(range.from), to: localDay(range.to) } })
 
   return (
     <div className="space-y-6">
@@ -45,6 +50,7 @@ export function AdminPresalesRankingPage() {
             empty="Nenhum SDR ativo."
             rows={data.sdr}
             goals={goals}
+            role="sdr"
             steps={(r) => [
               { label: 'Leads', value: r.leads },
               { label: 'Qualificados', value: r.qualificados, rate: pct(r.qualificados, r.leads) },
@@ -60,6 +66,7 @@ export function AdminPresalesRankingPage() {
             empty="Nenhuma social seller ativa."
             rows={data.social}
             goals={goals}
+            role="social_seller"
             steps={(r) => {
               const s = r as SocialRow
               return [
@@ -84,6 +91,7 @@ function Section({
   empty,
   rows,
   goals,
+  role,
   steps,
 }: {
   title: string
@@ -91,6 +99,8 @@ function Section({
   empty: string
   rows: SdrRow[]
   goals?: Goal[]
+  /** Papel das pessoas desta seção: define a regra do realizado da meta. */
+  role: Role
   steps: (r: SdrRow) => { label: string; value: number; rate?: string }[]
 }) {
   return (
@@ -105,7 +115,9 @@ function Section({
       ) : (
         <div className="space-y-3">
           {rows.map((r, idx) => {
-            const goal = goals?.find((g) => g.profile_id === r.profileId && g.metric === 'agendamentos')
+            // Todas as métricas, não só agendamentos: metas de reunião realizada, venda
+            // e faturamento eram cadastráveis e nunca apareciam aqui.
+            const personGoals = (goals ?? []).filter((g) => g.profile_id === r.profileId)
             const funnel = steps(r)
             return (
               <div key={r.profileId} className="card-surface rounded-xl p-4">
@@ -160,15 +172,11 @@ function Section({
                   ))}
                 </div>
 
-                {goal && (
-                  <div className="mt-3">
-                    <p className="mb-1 text-xs text-white/40">Meta de agendamento</p>
-                    <GoalProgress
-                      current={r.agendamentos}
-                      reachable={goal.target_reachable}
-                      high={goal.target_high}
-                      superGoal={goal.target_super}
-                    />
+                {personGoals.length > 0 && (
+                  <div className="mt-3 space-y-3">
+                    {personGoals.map((g) => (
+                      <GoalProgressCard key={g.id} goal={g} role={role} compact />
+                    ))}
                   </div>
                 )}
               </div>

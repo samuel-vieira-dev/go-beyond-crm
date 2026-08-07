@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/context/AuthContext'
 import type { ManualMetrics } from '@/types/database'
@@ -72,6 +72,18 @@ export const FIELDS_BY_ROLE: Record<string, ManualField[]> = {
   admin: [...MANUAL_FIELDS],
 }
 
+/**
+ * Dia LOCAL de um instante ISO — a chave da tabela manual é um `date`, não timestamp.
+ *
+ * Não dá para fatiar a string: `range.to` é o fim do dia local, que em UTC-3 vira
+ * 02:59 do dia SEGUINTE. `slice(0, 10)` devolvia essa data e o período somava um dia
+ * a mais de lançamentos — o total da meta ficava maior que a soma das linhas que a
+ * pessoa vê na grade do relatório, que sempre foi montada em dia local.
+ */
+export function localDay(iso: string): string {
+  return format(parseISO(iso), 'yyyy-MM-dd')
+}
+
 export type ManualTotals = Record<ManualField, number>
 
 export function emptyTotals(): ManualTotals {
@@ -103,8 +115,8 @@ export async function fetchManualByProfile(range: DateRange) {
   const { data, error } = await supabase
     .from(MANUAL_METRICS_TABLE)
     .select('*')
-    .gte('date', range.from.slice(0, 10))
-    .lte('date', range.to.slice(0, 10))
+    .gte('date', localDay(range.from))
+    .lte('date', localDay(range.to))
   if (error) throw error
 
   const byProfile = new Map<string, ManualTotals>()
@@ -126,8 +138,8 @@ export function useMyManualMetrics(range: DateRange) {
         .from(MANUAL_METRICS_TABLE)
         .select('*')
         .eq('profile_id', profile!.id)
-        .gte('date', range.from.slice(0, 10))
-        .lte('date', range.to.slice(0, 10))
+        .gte('date', localDay(range.from))
+        .lte('date', localDay(range.to))
         .order('date', { ascending: false })
       if (error) throw error
 
@@ -146,6 +158,8 @@ const AFFECTED_KEYS = [
   ['daily-report'],
   ['funnel-metrics'],
   ['channel-sales'],
+  // Sem isto, o número lançado na grade só chegava na aba de metas no próximo reload.
+  ['realizado'],
 ]
 
 /**

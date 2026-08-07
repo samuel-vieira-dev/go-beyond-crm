@@ -3,21 +3,25 @@ import { differenceInCalendarDays, endOfMonth, startOfMonth } from 'date-fns'
 import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import { RefreshButton } from '@/components/ui/RefreshButton'
 import { StatCard } from '@/components/ui/StatCard'
-import { GoalProgress } from '@/components/ui/GoalProgress'
+import { GoalProgressCard } from '@/components/metrics/GoalProgressCard'
+import { useRealizedRealtime } from '@/hooks/useRealized'
 import { DailyBarChart } from '@/components/charts/DailyBarChart'
 import { useCloserPerformance } from '@/hooks/useTeamPerformance'
 import { useGoals } from '@/hooks/useGoals'
+import { localDay } from '@/hooks/useManualMetrics'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
 
 const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function AdminCloserRankingPage() {
+  useRealizedRealtime()
   const [range, setRange] = useState<DateRange>({
     from: startOfMonth(new Date()).toISOString(),
     to: endOfMonth(new Date()).toISOString(),
   })
   const { data, isLoading, isFetching, refetch } = useCloserPerformance(range)
-  const { data: goals } = useGoals({ activeOn: range.from.slice(0, 10) })
+  // Todas as metas que encostam no período — não só as vigentes no primeiro dia dele.
+  const { data: goals } = useGoals({ overlapping: { from: localDay(range.from), to: localDay(range.to) } })
 
   const totalDays = Math.max(1, differenceInCalendarDays(new Date(range.to), new Date(range.from)) + 1)
   const elapsedDays = Math.max(
@@ -67,8 +71,9 @@ export function AdminCloserRankingPage() {
 
           <div className="space-y-3">
             {ranked.map((c, idx) => {
-              const revenueGoal = goals?.find((g) => g.profile_id === c.profileId && g.metric === 'faturamento')
-              const salesGoal = goals?.find((g) => g.profile_id === c.profileId && g.metric === 'vendas')
+              // Todas as métricas, não só vendas e faturamento: meta de reunião realizada
+              // era cadastrável e nunca aparecia aqui.
+              const closerGoals = (goals ?? []).filter((g) => g.profile_id === c.profileId)
               return (
                 <div key={c.profileId} className="card-surface rounded-xl p-4">
                   <div className="mb-3 flex items-center justify-between">
@@ -84,30 +89,13 @@ export function AdminCloserRankingPage() {
                     </div>
                   </div>
 
-                  {revenueGoal && (
-                    <div className="mb-3">
-                      <p className="mb-1 text-xs text-white/40">Meta de faturamento</p>
-                      <GoalProgress
-                        current={c.revenue}
-                        reachable={revenueGoal.target_reachable}
-                        high={revenueGoal.target_high}
-                        superGoal={revenueGoal.target_super}
-                        format={(n) => currency.format(n)}
-                      />
+                  {closerGoals.length > 0 ? (
+                    <div className="space-y-3">
+                      {closerGoals.map((g) => (
+                        <GoalProgressCard key={g.id} goal={g} role="closer" compact />
+                      ))}
                     </div>
-                  )}
-                  {salesGoal && (
-                    <div>
-                      <p className="mb-1 text-xs text-white/40">Meta de vendas</p>
-                      <GoalProgress
-                        current={c.sales}
-                        reachable={salesGoal.target_reachable}
-                        high={salesGoal.target_high}
-                        superGoal={salesGoal.target_super}
-                      />
-                    </div>
-                  )}
-                  {!revenueGoal && !salesGoal && (
+                  ) : (
                     <p className="text-xs text-white/25">Sem meta definida para o período.</p>
                   )}
                 </div>

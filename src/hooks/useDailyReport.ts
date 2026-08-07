@@ -3,12 +3,19 @@ import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
 import { fetchManualByProfile } from './useManualMetrics'
+import { fetchRealized, type Realized } from './useRealized'
 import type { DateRange } from './useFunnelMetrics'
-import type { LeadStage } from '@/types/domain'
+import type { LeadStage, Role } from '@/types/domain'
 
 export interface PresalesDailyReport {
   newLeads: number
   meetingsBooked: number
+  /**
+   * Exatamente os números que as metas medem, pela MESMA conta (ver useRealized).
+   * Estão aqui para que o relatório e a aba de metas não possam mostrar valores
+   * diferentes do mesmo período — era essa a divergência que o time reportava.
+   */
+  realizado: Realized
   /** Contagem ATUAL de leads por etapa (do próprio pré-vendedor). */
   pipeline: Record<string, number>
   leads: { id: string; name: string; stage: LeadStage; created_at: string }[]
@@ -17,7 +24,7 @@ export interface PresalesDailyReport {
 }
 
 /** Relatório do pré-vendedor: atividade no período + snapshot atual do pipeline dele. */
-export function usePresalesDailyReport(profileId: string | null, range: DateRange) {
+export function usePresalesDailyReport(profileId: string | null, role: Role, range: DateRange) {
   useRealtimeInvalidate(
     'presales-report-rt',
     ['leads', 'lead_events', 'meetings', 'social_metrics'],
@@ -25,7 +32,7 @@ export function usePresalesDailyReport(profileId: string | null, range: DateRang
   )
 
   return useQuery({
-    queryKey: ['daily-report', 'presales', profileId, range],
+    queryKey: ['daily-report', 'presales', profileId, role, range],
     enabled: !!profileId,
     queryFn: async (): Promise<PresalesDailyReport> => {
       const { data: events, error: eventsError } = await supabase
@@ -67,13 +74,15 @@ export function usePresalesDailyReport(profileId: string | null, range: DateRang
       // Lançamento manual soma ao total E ao dia certo — sem isso, o número do topo
       // (com manual) não batia com a soma das linhas da grade abaixo (que já mostrava
       // o manual separado).
-      const { byProfile: manual, rows: manualRows } = await fetchManualByProfile(range)
+      const { rows: manualRows } = await fetchManualByProfile(range)
       for (const r of manualRows) {
         if (r.profile_id !== profileId || !r.agendamentos) continue
         const bucket = (byDay[r.date] ??= { newLeads: 0, meetingsBooked: 0 })
         bucket.meetingsBooked += r.agendamentos
       }
-      const meetingsBooked = (booked?.length ?? 0) + (manual.get(profileId!)?.agendamentos ?? 0)
+      // Os totais das metas vêm da fonte única — não de uma segunda conta feita aqui.
+      const realizado = await fetchRealized(profileId!, role, range)
+      const meetingsBooked = realizado.agendamentos
 
       // Snapshot atual do pipeline (leads do próprio pré-vendedor).
       const { data: allLeads, error: pipelineError } = await supabase
@@ -93,7 +102,7 @@ export function usePresalesDailyReport(profileId: string | null, range: DateRang
         .order('created_at', { ascending: false })
       if (leadsError) throw leadsError
 
-      return { newLeads, meetingsBooked, pipeline, leads: leads ?? [], byDay }
+      return { newLeads, meetingsBooked, realizado, pipeline, leads: leads ?? [], byDay }
     },
   })
 }
@@ -107,6 +116,8 @@ export interface CloserDailyReport {
   /** Taxa de conversão do closer: vendas ÷ reuniões realizadas. */
   conversionRate: number
   meetings: DayMeeting[]
+  /** Os mesmos números que as metas medem, pela mesma conta. Ver PresalesDailyReport. */
+  realizado: Realized
 }
 
 export interface DayMeeting {
@@ -138,15 +149,6 @@ export function useCloserDailyReport(profileId: string | null, range: DateRange)
         .order('scheduled_at', { ascending: true })
       if (meetingsError) throw meetingsError
 
-      // Vendas fechadas no período.
-      const { data: sales, error: salesError } = await supabase
-        .from('sales')
-        .select('amount')
-        .eq('closer_id', profileId!)
-        .gte('sold_at', range.from)
-        .lte('sold_at', range.to)
-      if (salesError) throw salesError
-
       const rows = (meetings ?? []) as unknown as {
         id: string
         status: string
@@ -158,18 +160,21 @@ export function useCloserDailyReport(profileId: string | null, range: DateRange)
       const { byProfile: manual } = await fetchManualByProfile(range)
       const extra = manual.get(profileId!)
 
-      const meetingsHeld = rows.filter((m) => m.status === 'realizada').length + (extra?.reunioes_realizadas ?? 0)
+      // Reunião, agendamento, venda e faturamento vêm da fonte única — a mesma que
+      // alimenta as metas. Só o no-show é contado aqui: não é métrica de meta.
+      const realizado = await fetchRealized(profileId!, 'closer', range)
+      const meetingsHeld = realizado.reunioes_realizadas
+      const salesCount = realizado.vendas
       const noShow = rows.filter((m) => m.status === 'nao_compareceu').length + (extra?.no_shows ?? 0)
-      const revenue = (sales ?? []).reduce((sum, s) => sum + Number(s.amount), 0) + (extra?.faturamento ?? 0)
-      const salesCount = (sales?.length ?? 0) + (extra?.vendas ?? 0)
 
       return {
-        meetingsScheduled: rows.length + (extra?.agendamentos ?? 0),
+        meetingsScheduled: realizado.agendamentos,
         meetingsHeld,
         noShow,
         sales: salesCount,
-        revenue,
+        revenue: realizado.faturamento,
         conversionRate: meetingsHeld > 0 ? (salesCount / meetingsHeld) * 100 : 0,
+        realizado,
         meetings: rows.map((m) => ({
           id: m.id,
           scheduled_at: m.scheduled_at,

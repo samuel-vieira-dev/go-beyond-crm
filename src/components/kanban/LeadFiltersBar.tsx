@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { endOfDay, endOfWeek, parseISO, startOfDay, startOfWeek } from 'date-fns'
 import { Input, Label, Select } from '@/components/ui/Field'
+import { Toggle } from '@/components/ui/Toggle'
 import { cn } from '@/lib/cn'
 import { ORIGIN_LABELS, type LeadOrigin } from '@/types/domain'
 import type { LeadFilters } from '@/hooks/useLeads'
@@ -34,7 +35,8 @@ export function LeadFiltersBar({
     (filters.origin ? 1 : 0) +
     (filters.formTag ? 1 : 0) +
     (filters.isMql !== undefined && !hideQualification ? 1 : 0) +
-    (filters.dateFrom || filters.dateTo ? 1 : 0)
+    (filters.dateFrom || filters.dateTo ? 1 : 0) +
+    (filters.lostOnly ? 1 : 0)
 
   function applyPreset(preset: DatePreset) {
     setDatePreset(preset)
@@ -55,7 +57,7 @@ export function LeadFiltersBar({
 
   function clearAll() {
     setDatePreset('all')
-    onChange({ ...filters, search: '', origin: undefined, formTag: undefined, isMql: undefined, dateFrom: undefined, dateTo: undefined })
+    onChange({ ...filters, search: '', origin: undefined, formTag: undefined, isMql: undefined, dateFrom: undefined, dateTo: undefined, lostOnly: undefined })
   }
 
   return (
@@ -93,9 +95,35 @@ export function LeadFiltersBar({
         )}
       </div>
 
+      {/* Ligado, o board inteiro troca de conteúdo — precisa ficar visível mesmo com o
+          painel de filtros fechado, senão parece que os leads sumiram. */}
+      {filters.lostOnly && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-xs text-danger">
+          <span>🚫 Exibindo apenas leads perdidos, cada um na etapa em que foi perdido.</span>
+          <button
+            onClick={() => onChange({ ...filters, lostOnly: undefined })}
+            className="ml-auto rounded px-2 py-0.5 font-medium underline-offset-2 hover:underline"
+          >
+            Voltar ao kanban normal
+          </button>
+        </div>
+      )}
+
       {/* Painel expandido */}
       {open && (
         <div className="mt-4 grid grid-cols-1 gap-4 border-t border-white/10 pt-4 md:grid-cols-2 lg:grid-cols-3">
+          <div>
+            <Label>Leads perdidos</Label>
+            <div className="flex h-10 items-center">
+              <Toggle
+                checked={!!filters.lostOnly}
+                onChange={(checked) => onChange({ ...filters, lostOnly: checked || undefined })}
+                labelOn="Ver Leads Perdidos"
+                labelOff="Ver Leads Perdidos"
+              />
+            </div>
+          </div>
+
           <div>
             <Label>Formulário</Label>
             <Select

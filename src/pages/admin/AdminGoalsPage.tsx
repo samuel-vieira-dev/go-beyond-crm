@@ -6,23 +6,21 @@ import { FormRow, Input, Select } from '@/components/ui/Field'
 import { Badge } from '@/components/ui/Badge'
 import { useAllProfiles } from '@/hooks/useProfiles'
 import { useDeleteGoal, useGoals, useUpsertGoal, type UpsertGoalInput } from '@/hooks/useGoals'
+import { GoalProgressCard, METRIC_LABELS } from '@/components/metrics/GoalProgressCard'
+import { useRealizedRealtime } from '@/hooks/useRealized'
 import type { Goal, GoalMetric } from '@/types/database'
-
-const METRIC_LABELS: Record<GoalMetric, string> = {
-  agendamentos: 'Agendamentos',
-  reunioes_realizadas: 'Reuniões Realizadas',
-  vendas: 'Vendas',
-  faturamento: 'Faturamento',
-}
+import type { Role } from '@/types/domain'
 
 export function AdminGoalsPage() {
+  useRealizedRealtime()
   const { data: goals, isLoading } = useGoals()
   const { data: profiles } = useAllProfiles()
   const deleteGoal = useDeleteGoal()
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Goal | null>(null)
 
-  const profileName = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? '—'
+  const profileById = (id: string) => profiles?.find((p) => p.id === id)
+  const profileName = (id: string) => profileById(id)?.full_name ?? '—'
 
   return (
     <div className="space-y-5">
@@ -39,27 +37,33 @@ export function AdminGoalsPage() {
       ) : (
         <div className="space-y-2">
           {goals?.map((g) => (
-            <div key={g.id} className="card-surface flex flex-wrap items-center justify-between gap-3 rounded-xl p-4">
-              <div>
-                <p className="font-medium text-white">{profileName(g.profile_id)}</p>
-                <p className="text-xs text-white/40">
-                  {format(parseISO(g.period_start), 'dd/MM/yyyy')} — {format(parseISO(g.period_end), 'dd/MM/yyyy')}
-                </p>
+            <div key={g.id} className="card-surface space-y-3 rounded-xl p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium text-white">{profileName(g.profile_id)}</p>
+                  <p className="text-xs text-white/40">
+                    {format(parseISO(g.period_start), 'dd/MM/yyyy')} — {format(parseISO(g.period_end), 'dd/MM/yyyy')}
+                  </p>
+                </div>
+                <Badge tone="blue">{METRIC_LABELS[g.metric]}</Badge>
+                <div className="flex gap-3 text-xs text-white/60">
+                  <span>Alcançável: {g.target_reachable}</span>
+                  <span>Alta: {g.target_high}</span>
+                  <span>Super: {g.target_super}</span>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(g)}>
+                    Editar
+                  </Button>
+                  <Button size="sm" variant="danger" onClick={() => deleteGoal.mutate(g.id)}>
+                    Remover
+                  </Button>
+                </div>
               </div>
-              <Badge tone="blue">{METRIC_LABELS[g.metric]}</Badge>
-              <div className="flex gap-3 text-xs text-white/60">
-                <span>Alcançável: {g.target_reachable}</span>
-                <span>Alta: {g.target_high}</span>
-                <span>Super: {g.target_super}</span>
-              </div>
-              <div className="flex gap-2">
-                <Button size="sm" variant="ghost" onClick={() => setEditing(g)}>
-                  Editar
-                </Button>
-                <Button size="sm" variant="danger" onClick={() => deleteGoal.mutate(g.id)}>
-                  Remover
-                </Button>
-              </div>
+
+              {/* Mesma conta que o colaborador vê em "Minhas Metas": cadastrar a meta e
+                  acompanhar o progresso dela deixa de exigir duas telas que discordam. */}
+              <GoalProgressCard goal={g} role={(profileById(g.profile_id)?.role as Role) ?? null} compact />
             </div>
           ))}
           {goals?.length === 0 && <p className="text-sm text-white/30">Nenhuma meta cadastrada.</p>}

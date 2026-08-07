@@ -4,7 +4,6 @@ import { LeadFiltersBar } from '@/components/kanban/LeadFiltersBar'
 import { LeadDetailModal } from '@/components/kanban/LeadDetailModal'
 import { ScheduleMeetingModal } from '@/components/kanban/ScheduleMeetingModal'
 import { MeetingOutcomeModal } from '@/components/kanban/MeetingOutcomeModal'
-import { LostReasonModal } from '@/components/kanban/LostReasonModal'
 import { Label, Select } from '@/components/ui/Field'
 import { useAllProfiles } from '@/hooks/useProfiles'
 import { useChangeLeadStage, useLeads, type LeadFilters } from '@/hooks/useLeads'
@@ -13,13 +12,19 @@ import { simpleColumns, UNIFIED_STAGES, type LeadStage } from '@/types/domain'
 import type { LeadWithRelations } from '@/types/database'
 
 export function AdminKanbanPage() {
-  const columns = useMemo(() => simpleColumns(UNIFIED_STAGES), [])
   const [filters, setFilters] = useState<LeadFilters>({})
+
+  // Perdido não é mais coluna: o lead perdido fica na etapa em que parou e some do
+  // board. A coluna só volta no modo "ver perdidos", para os registros antigos que
+  // foram gravados com stage = 'perdido' antes da v13.
+  const columns = useMemo(
+    () => simpleColumns(filters.lostOnly ? UNIFIED_STAGES : UNIFIED_STAGES.filter((s) => s !== 'perdido')),
+    [filters.lostOnly],
+  )
   const [selectedLead, setSelectedLead] = useState<LeadWithRelations | null>(null)
   const [schedulingLead, setSchedulingLead] = useState<LeadWithRelations | null>(null)
   const [outcomeLead, setOutcomeLead] = useState<LeadWithRelations | null>(null)
   const [outcomeStep, setOutcomeStep] = useState<'attendance' | 'sale-question' | 'sale-form' | 'no-sale-form'>('attendance')
-  const [lostLead, setLostLead] = useState<LeadWithRelations | null>(null)
 
   const { data: profiles } = useAllProfiles()
   const { data: leads, isLoading } = useLeads(filters)
@@ -38,10 +43,6 @@ export function AdminKanbanPage() {
     if (newStage === 'venda_fechada') {
       setOutcomeStep('sale-form')
       setOutcomeLead(lead)
-      return
-    }
-    if (newStage === 'perdido') {
-      setLostLead(lead)
       return
     }
     changeStage.mutate({ leadId: lead.id, fromStage: lead.stage, toStage: newStage })
@@ -111,7 +112,6 @@ export function AdminKanbanPage() {
       <LeadDetailModal lead={selectedLead} onClose={() => setSelectedLead(null)} />
       <ScheduleMeetingModal lead={schedulingLead} onClose={() => setSchedulingLead(null)} />
       <MeetingOutcomeModal lead={outcomeLead} onClose={() => setOutcomeLead(null)} initialStep={outcomeStep} />
-      <LostReasonModal lead={lostLead} onClose={() => setLostLead(null)} />
     </div>
   )
 }

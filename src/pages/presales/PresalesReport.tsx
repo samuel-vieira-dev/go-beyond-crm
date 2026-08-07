@@ -7,8 +7,10 @@ import type { DateRange } from '@/hooks/useFunnelMetrics'
 import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
 import { RefreshButton } from '@/components/ui/RefreshButton'
-import { DateRangePicker, rangeForPreset } from '@/components/ui/DateRangePicker'
+import { DateRangePicker, rangeForPreset, rangeLabel } from '@/components/ui/DateRangePicker'
 import { STAGE_LABELS, type BoardColumn } from '@/types/domain'
+
+const currency = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function PresalesReport({
   title,
@@ -24,7 +26,11 @@ export function PresalesReport({
   // Abre em 7 dias: a grade do relatório precisa mostrar a semana inteira para a
   // pessoa ver de cara qual dia ficou sem lançamento.
   const [range, setRange] = useState<DateRange>(() => rangeForPreset('7d'))
-  const { data, isLoading, isFetching, refetch } = usePresalesDailyReport(profile?.id ?? null, range)
+  const { data, isLoading, isFetching, refetch } = usePresalesDailyReport(
+    profile?.id ?? null,
+    profile?.role ?? 'sdr',
+    range,
+  )
 
   return (
     <div className="space-y-5">
@@ -49,8 +55,26 @@ export function PresalesReport({
             <h2 className="mb-2 text-sm font-semibold text-white/60">Sua atividade no período</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <StatCard label="Novos leads cadastrados" value={data.newLeads} accent />
-              <StatCard label="Reuniões agendadas" value={data.meetingsBooked} accent />
               <StatCard label="Leads cadastrados" value={data.leads.length} />
+            </div>
+          </div>
+
+          {/* Exatamente os quatro números que as metas medem, pela mesma conta —
+              conferir "Minhas Metas" contra este bloco tem que dar igual. */}
+          <div>
+            <h2 className="mb-2 text-sm font-semibold text-white/60">
+              O que conta para as suas metas
+              <span className="ml-2 font-normal text-white/30">kanban + relatório diário, {rangeLabel(range)}</span>
+            </h2>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <StatCard label="Agendamentos" value={data.realizado.agendamentos} accent />
+              <StatCard
+                label="Reuniões realizadas"
+                value={data.realizado.reunioes_realizadas}
+                hint="Das reuniões que você agendou"
+              />
+              <StatCard label="Vendas" value={data.realizado.vendas} hint="Dos leads que você agendou" />
+              <StatCard label="Faturamento" value={currency.format(data.realizado.faturamento)} />
             </div>
           </div>
 

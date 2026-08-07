@@ -4,7 +4,6 @@ import { LeadFiltersBar } from '@/components/kanban/LeadFiltersBar'
 import { LeadDetailModal } from '@/components/kanban/LeadDetailModal'
 import { MeetingOutcomeModal } from '@/components/kanban/MeetingOutcomeModal'
 import { RescheduleMeetingModal } from '@/components/kanban/RescheduleMeetingModal'
-import { LostReasonModal } from '@/components/kanban/LostReasonModal'
 import { QuickCloserLeadModal } from '@/components/kanban/QuickCloserLeadModal'
 import { Button } from '@/components/ui/Button'
 import { useChangeLeadStage, useLeads, type LeadFilters } from '@/hooks/useLeads'
@@ -17,7 +16,6 @@ export function CloserLeadsPage() {
   const [outcomeLead, setOutcomeLead] = useState<LeadWithRelations | null>(null)
   const [outcomeStep, setOutcomeStep] = useState<'attendance' | 'sale-question' | 'sale-form' | 'no-sale-form'>('attendance')
   const [rescheduleLead, setRescheduleLead] = useState<LeadWithRelations | null>(null)
-  const [lostLead, setLostLead] = useState<LeadWithRelations | null>(null)
   const [quickLeadOpen, setQuickLeadOpen] = useState(false)
 
   const columns = useMemo(() => simpleColumns(CLOSER_STAGES), [])
@@ -33,10 +31,6 @@ export function CloserLeadsPage() {
     if (newStage === 'venda_fechada') {
       setOutcomeStep('sale-form')
       setOutcomeLead(lead)
-      return
-    }
-    if (newStage === 'perdido') {
-      setLostLead(lead)
       return
     }
     changeStage.mutate({ leadId: lead.id, fromStage: lead.stage, toStage: newStage })
@@ -122,7 +116,6 @@ export function CloserLeadsPage() {
 
       <MeetingOutcomeModal lead={outcomeLead} onClose={() => setOutcomeLead(null)} initialStep={outcomeStep} />
       <RescheduleMeetingModal lead={rescheduleLead} onClose={() => setRescheduleLead(null)} />
-      <LostReasonModal lead={lostLead} onClose={() => setLostLead(null)} />
       <QuickCloserLeadModal open={quickLeadOpen} onClose={() => setQuickLeadOpen(false)} />
     </div>
   )

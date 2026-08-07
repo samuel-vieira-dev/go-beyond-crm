@@ -83,6 +83,7 @@ export function useRegisterSale() {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
       queryClient.invalidateQueries({ queryKey: ['sales'] })
       queryClient.invalidateQueries({ queryKey: ['meetings'] })
+      queryClient.invalidateQueries({ queryKey: ['realizado'] })
     },
   })
 }
@@ -125,6 +126,7 @@ export function useUpdateSale() {
       queryClient.invalidateQueries({ queryKey: ['daily-report'] })
       queryClient.invalidateQueries({ queryKey: ['funnel-metrics'] })
       queryClient.invalidateQueries({ queryKey: ['channel-sales'] })
+      queryClient.invalidateQueries({ queryKey: ['realizado'] })
     },
   })
 }
@@ -136,23 +138,29 @@ export function useRegisterNoSale() {
 
   return useMutation({
     mutationFn: async ({ leadId, lost, lostReason }: RegisterNoSaleInput) => {
-      const newStage = lost ? 'perdido' : 'follow_up_fechamento'
+      // Perder não move de etapa: a etapa registra ONDE a perda aconteceu, e o card
+      // some do board pelo flag is_lost (mesmo caminho do botão "Marcar como perdido").
       const { error } = await supabase
         .from('leads')
-        .update({ stage: newStage, lost_reason: lost ? (lostReason ?? 'Outro') : null })
+        .update(
+          lost
+            ? { is_lost: true, lost_reason: lostReason ?? 'Outro', lost_at: new Date().toISOString() }
+            : { stage: 'follow_up_fechamento', lost_reason: null },
+        )
         .eq('id', leadId)
       if (error) throw error
 
       await supabase.from('lead_events').insert({
         lead_id: leadId,
         actor_id: profile?.id ?? null,
-        type: 'stage_change',
-        to_stage: newStage,
+        type: lost ? 'lost' : 'stage_change',
+        to_stage: lost ? null : 'follow_up_fechamento',
         payload: lost ? { lost_reason: lostReason } : undefined,
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['leads'] })
+      queryClient.invalidateQueries({ queryKey: ['realizado'] })
     },
   })
 }

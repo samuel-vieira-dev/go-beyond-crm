@@ -2,13 +2,28 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Goal, GoalMetric } from '@/types/database'
 
-export function useGoals(filters: { profileId?: string; activeOn?: string } = {}) {
+export interface GoalFilters {
+  profileId?: string
+  /** Metas vigentes num dia específico ("yyyy-MM-dd"). */
+  activeOn?: string
+  /**
+   * Metas que ENCOSTAM no período ("yyyy-MM-dd" nos dois). Substitui o `activeOn`
+   * das telas de ranking, que só pegava as metas vigentes no PRIMEIRO dia do filtro:
+   * com "Este mês" selecionado, uma meta quinzenal começando no dia 16 sumia da tela.
+   */
+  overlapping?: { from: string; to: string }
+}
+
+export function useGoals(filters: GoalFilters = {}) {
   return useQuery({
     queryKey: ['goals', filters],
     queryFn: async () => {
       let q = supabase.from('goals').select('*').order('period_start', { ascending: false })
       if (filters.profileId) q = q.eq('profile_id', filters.profileId)
       if (filters.activeOn) q = q.lte('period_start', filters.activeOn).gte('period_end', filters.activeOn)
+      if (filters.overlapping) {
+        q = q.lte('period_start', filters.overlapping.to).gte('period_end', filters.overlapping.from)
+      }
       const { data, error } = await q
       if (error) throw error
       return data as Goal[]

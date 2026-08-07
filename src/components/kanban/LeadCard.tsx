@@ -31,7 +31,10 @@ export function LeadCard({
   /** true para o card "tremer" (No-Show não visto). */
   shake?: boolean
 }) {
-  const accent = stageAccent(lead.stage)
+  // Perdido pinta de vermelho independente da etapa, e não se arrasta: mover um card
+  // que só está visível pelo filtro de perdidos não teria para onde ir.
+  const accent = lead.is_lost ? 'red' : stageAccent(lead.stage)
+  const canDrag = draggable && !lead.is_lost
   const { byLead } = useActivityReminders()
   const reminder = byLead.get(lead.id)
   const reminderOverdue = reminder?.due_at ? isPast(parseISO(reminder.due_at)) : false
@@ -44,10 +47,12 @@ export function LeadCard({
       </div>
 
       <div className="flex flex-wrap gap-1">
+        {lead.is_lost && <Badge tone="red">Perdido{lead.lost_reason ? ` · ${lead.lost_reason}` : ''}</Badge>}
         {lead.form_tag && <Badge tone="blue">{lead.form_tag}</Badge>}
-        {/* mostra a etapa real quando o card está fora da sua coluna nominal (handed-off) */}
-        {!draggable && (
-          <Badge tone={accent === 'green' ? 'green' : accent === 'red' ? 'red' : 'neutral'}>
+        {/* mostra a etapa real quando o card está fora da sua coluna nominal (handed-off)
+            e quando está perdido (é a etapa que diz ONDE a perda aconteceu) */}
+        {!canDrag && (
+          <Badge tone={lead.is_lost ? 'neutral' : accent === 'green' ? 'green' : accent === 'red' ? 'red' : 'neutral'}>
             {STAGE_LABELS[lead.stage]}
           </Badge>
         )}
@@ -92,7 +97,7 @@ export function LeadCard({
   }
 
   return (
-    <DraggableCard lead={lead} onClick={onClick} draggable={draggable} accentClass={ACCENT_CLASSES[accent]} shake={shake}>
+    <DraggableCard lead={lead} onClick={onClick} draggable={canDrag} accentClass={ACCENT_CLASSES[accent]} shake={shake}>
       {content}
     </DraggableCard>
   )

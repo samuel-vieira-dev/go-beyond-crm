@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
+import { localDay } from './useManualMetrics'
 import type { DateRange } from './useFunnelMetrics'
 import type { ManualMetrics } from '@/types/database'
 
@@ -53,7 +54,7 @@ export function usePresalesPerformanceSplit(range: DateRange) {
           // por dois campos de data diferentes do que arriscar duas queries divergirem.
           supabase.from('meetings').select('booked_by, closer_id, status, lead_id, scheduled_at, created_at'),
           supabase.from('sales').select('lead_id, amount, sold_at').gte('sold_at', from).lte('sold_at', to),
-          supabase.from('social_metrics').select('*').gte('date', from.slice(0, 10)).lte('date', to.slice(0, 10)),
+          supabase.from('social_metrics').select('*').gte('date', localDay(from)).lte('date', localDay(to)),
         ])
 
       const meetings = allMeetings ?? []
@@ -127,6 +128,10 @@ export function usePresalesPerformanceSplit(range: DateRange) {
         r.agendamentos += m.agendamentos ?? 0
         r.realizadas += m.reunioes_realizadas ?? 0
         r.noShow += m.no_shows ?? 0
+        // Faltava: a coluna "Vendas" do ranking ignorava o lançamento manual, então
+        // ela discordava da meta de vendas da mesma pessoa, que já o somava.
+        r.vendas += m.vendas ?? 0
+        r.receita += Number(m.faturamento ?? 0)
 
         const s = social.get(m.profile_id)
         if (s) {
