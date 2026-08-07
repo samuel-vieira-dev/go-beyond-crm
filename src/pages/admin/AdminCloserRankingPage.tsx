@@ -92,7 +92,7 @@ export function AdminCloserRankingPage() {
                   {closerGoals.length > 0 ? (
                     <div className="space-y-3">
                       {closerGoals.map((g) => (
-                        <GoalProgressCard key={g.id} goal={g} role="closer" compact />
+                        <GoalProgressCard key={g.id} goal={g} role="closer" compact range={range} />
                       ))}
                     </div>
                   ) : (

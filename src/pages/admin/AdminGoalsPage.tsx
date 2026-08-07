@@ -1,13 +1,15 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { format, parseISO } from 'date-fns'
+import { endOfMonth, format, parseISO, startOfMonth } from 'date-fns'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { FormRow, Input, Select } from '@/components/ui/Field'
 import { Badge } from '@/components/ui/Badge'
+import { DateRangePicker } from '@/components/ui/DateRangePicker'
 import { useAllProfiles } from '@/hooks/useProfiles'
 import { useDeleteGoal, useGoals, useUpsertGoal, type UpsertGoalInput } from '@/hooks/useGoals'
 import { GoalProgressCard, METRIC_LABELS } from '@/components/metrics/GoalProgressCard'
 import { useRealizedRealtime } from '@/hooks/useRealized'
+import type { DateRange } from '@/hooks/useFunnelMetrics'
 import type { Goal, GoalMetric } from '@/types/database'
 import type { Role } from '@/types/domain'
 
@@ -18,18 +20,27 @@ export function AdminGoalsPage() {
   const deleteGoal = useDeleteGoal()
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Goal | null>(null)
+  // Mesmo período que o Relatório/Ranking usam — o progresso aqui precisa bater com
+  // o que a pessoa vê nas telas dela, não com o período que está gravado na meta.
+  const [range, setRange] = useState<DateRange>({
+    from: startOfMonth(new Date()).toISOString(),
+    to: endOfMonth(new Date()).toISOString(),
+  })
 
   const profileById = (id: string) => profiles?.find((p) => p.id === id)
   const profileName = (id: string) => profileById(id)?.full_name ?? '—'
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-white">Metas</h1>
           <p className="text-sm text-white/40">Alcançável, alta e super meta por pessoa e período</p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>+ Nova meta</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <DateRangePicker value={range} onChange={setRange} defaultPreset="month" />
+          <Button onClick={() => setFormOpen(true)}>+ Nova meta</Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -63,7 +74,12 @@ export function AdminGoalsPage() {
 
               {/* Mesma conta que o colaborador vê em "Minhas Metas": cadastrar a meta e
                   acompanhar o progresso dela deixa de exigir duas telas que discordam. */}
-              <GoalProgressCard goal={g} role={(profileById(g.profile_id)?.role as Role) ?? null} compact />
+              <GoalProgressCard
+                goal={g}
+                role={(profileById(g.profile_id)?.role as Role) ?? null}
+                compact
+                range={range}
+              />
             </div>
           ))}
           {goals?.length === 0 && <p className="text-sm text-white/30">Nenhuma meta cadastrada.</p>}

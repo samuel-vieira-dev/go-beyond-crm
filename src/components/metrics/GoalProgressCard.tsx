@@ -3,6 +3,8 @@ import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { GoalProgress } from '@/components/ui/GoalProgress'
 import { goalPeriodRange, useRealized } from '@/hooks/useRealized'
+import { rangeLabel } from '@/components/ui/DateRangePicker'
+import type { DateRange } from '@/hooks/useFunnelMetrics'
 import type { Goal, GoalMetric } from '@/types/database'
 import type { Role } from '@/types/domain'
 
@@ -27,17 +29,23 @@ export function goalPeriodLabel(goal: Pick<Goal, 'period_start' | 'period_end'>)
 /**
  * Uma meta com o realizado dela.
  *
- * O realizado é SEMPRE medido no período da própria meta, nunca no filtro de data da
- * tela. Antes cada página somava o realizado no seu range (o padrão era "este mês") e
- * comparava com um alvo de outro período — meta de uma semana aparecia medida contra
- * o mês inteiro, e a mesma meta mostrava números diferentes para o colaborador e para
- * a Gestão. Como todas as telas passam por aqui, esse tipo de divergência não volta.
+ * Por padrão o realizado é medido no período da própria meta. Mas quando a tela que
+ * mostra a meta já tem um período escolhido (o filtro do Relatório ou do Ranking),
+ * passe `range` para SUBSTITUIR o período da meta por ele.
+ *
+ * Isso existe porque medir sempre pelo período da meta criava outra divergência: a
+ * SDR olhava "Este mês" no relatório e via 62 agendamentos, e a barra da meta (cujo
+ * período cadastrado é mais curto que o mês) mostrava 40 — número correto para o
+ * período dela, mas incompreensível ao lado do relatório. Combinado com o time: por
+ * ora a meta mostra exatamente o que o relatório mostra para o período escolhido ali,
+ * não o período que está gravado na meta.
  */
 export function GoalProgressCard({
   goal,
   role,
   personName,
   compact,
+  range,
 }: {
   goal: Goal
   /** Papel de QUEM tem a meta: muda a regra do realizado (pré-venda credita quem agendou, closer quem atendeu). */
@@ -46,23 +54,28 @@ export function GoalProgressCard({
   personName?: string
   /** Versão enxuta para listas de ranking: sem cabeçalho de pessoa e sem "faltam X". */
   compact?: boolean
+  /** Período da tela (Relatório/Ranking) que substitui o período da própria meta. */
+  range?: DateRange
 }) {
-  const range = useMemo(
-    () => goalPeriodRange(goal.period_start, goal.period_end),
-    [goal.period_start, goal.period_end],
+  const effectiveRange = useMemo(
+    () => range ?? goalPeriodRange(goal.period_start, goal.period_end),
+    [range, goal.period_start, goal.period_end],
   )
-  const { data, isLoading } = useRealized(goal.profile_id, role, range)
+  const { data, isLoading } = useRealized(goal.profile_id, role, effectiveRange)
 
   const atual = data?.[goal.metric] ?? 0
   const fmt = (n: number) => formatMetric(goal.metric, n)
   const restante = Math.max(0, goal.target_reachable - atual)
+  // Com range, o rótulo é o período que a tela está mostrando (bate com o relatório
+  // ao lado); sem range, mostra o período cadastrado na própria meta.
+  const periodLabel = range ? rangeLabel(range) : goalPeriodLabel(goal)
 
   if (compact) {
     return (
       <div>
         <div className="mb-1 flex items-baseline justify-between gap-2 text-xs">
           <span className="text-white/40">
-            Meta de {METRIC_LABELS[goal.metric].toLowerCase()} · {goalPeriodLabel(goal)}
+            Meta de {METRIC_LABELS[goal.metric].toLowerCase()} · {periodLabel}
           </span>
           <span className="font-semibold text-gold-400">{isLoading ? '—' : fmt(atual)}</span>
         </div>
@@ -83,7 +96,7 @@ export function GoalProgressCard({
         <div>
           {personName && <p className="text-xs text-white/40">{personName}</p>}
           <p className="font-semibold text-white">{METRIC_LABELS[goal.metric]}</p>
-          <p className="text-xs text-white/40">{goalPeriodLabel(goal)}</p>
+          <p className="text-xs text-white/40 capitalize">{periodLabel}</p>
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-gold-400">{isLoading ? '—' : fmt(atual)}</p>
@@ -106,7 +119,7 @@ export function GoalProgressCard({
       />
 
       <p className="mt-2 text-[11px] text-white/25">
-        Realizado somando kanban + o que você lançou no relatório diário, no período da meta.
+        Realizado somando kanban + o que você lançou no relatório diário, em {periodLabel}.
       </p>
     </div>
   )

@@ -51,6 +51,7 @@ export function AdminPresalesRankingPage() {
             rows={data.sdr}
             goals={goals}
             role="sdr"
+            range={range}
             steps={(r) => [
               { label: 'Leads', value: r.leads },
               { label: 'Qualificados', value: r.qualificados, rate: pct(r.qualificados, r.leads) },
@@ -67,6 +68,7 @@ export function AdminPresalesRankingPage() {
             rows={data.social}
             goals={goals}
             role="social_seller"
+            range={range}
             steps={(r) => {
               const s = r as SocialRow
               return [
@@ -92,6 +94,7 @@ function Section({
   rows,
   goals,
   role,
+  range,
   steps,
 }: {
   title: string
@@ -101,6 +104,8 @@ function Section({
   goals?: Goal[]
   /** Papel das pessoas desta seção: define a regra do realizado da meta. */
   role: Role
+  /** Período selecionado na tela — a meta mostra o realizado dele, não do período dela. */
+  range: DateRange
   steps: (r: SdrRow) => { label: string; value: number; rate?: string }[]
 }) {
   return (
@@ -175,7 +180,7 @@ function Section({
                 {personGoals.length > 0 && (
                   <div className="mt-3 space-y-3">
                     {personGoals.map((g) => (
-                      <GoalProgressCard key={g.id} goal={g} role={role} compact />
+                      <GoalProgressCard key={g.id} goal={g} role={role} compact range={range} />
                     ))}
                   </div>
                 )}

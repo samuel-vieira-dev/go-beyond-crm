@@ -51,7 +51,7 @@ export function MyGoalsPage() {
       ) : (
         <div className="space-y-3">
           {(goals ?? []).map((g) => (
-            <GoalProgressCard key={g.id} goal={g} role={profile?.role ?? null} />
+            <GoalProgressCard key={g.id} goal={g} role={profile?.role ?? null} range={range} />
           ))}
         </div>
       )}
