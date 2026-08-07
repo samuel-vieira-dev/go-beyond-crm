@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { useAuth } from '@/context/AuthContext'
 import { usePresalesDailyReport } from '@/hooks/useDailyReport'
+import { useGoalRealized } from '@/hooks/useRealized'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
 import { StatCard } from '@/components/ui/StatCard'
 import { Badge } from '@/components/ui/Badge'
@@ -31,6 +32,9 @@ export function PresalesReport({
     profile?.role ?? 'sdr',
     range,
   )
+  // Mesma fonte que alimenta a barra de progresso da meta: só o que foi lançado na
+  // grade manual abaixo, sem o que o kanban gera sozinho.
+  const { data: goalRealizado } = useGoalRealized(profile?.id ?? null, range)
 
   return (
     <div className="space-y-5">
@@ -59,22 +63,21 @@ export function PresalesReport({
             </div>
           </div>
 
-          {/* Exatamente os quatro números que as metas medem, pela mesma conta —
-              conferir "Minhas Metas" contra este bloco tem que dar igual. */}
+          {/* Exatamente os quatro números que a meta mede, pela mesma conta — conferir
+              "Minhas Metas" contra este bloco tem que dar igual. É só o que você
+              LANÇA na grade "Seu relatório do dia" abaixo, não o que o kanban gera. */}
           <div>
             <h2 className="mb-2 text-sm font-semibold text-white/60">
               O que conta para as suas metas
-              <span className="ml-2 font-normal text-white/30">kanban + relatório diário, {rangeLabel(range)}</span>
+              <span className="ml-2 font-normal text-white/30">
+                do seu relatório do dia, {rangeLabel(range)}
+              </span>
             </h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <StatCard label="Agendamentos" value={data.realizado.agendamentos} accent />
-              <StatCard
-                label="Reuniões realizadas"
-                value={data.realizado.reunioes_realizadas}
-                hint="Das reuniões que você agendou"
-              />
-              <StatCard label="Vendas" value={data.realizado.vendas} hint="Dos leads que você agendou" />
-              <StatCard label="Faturamento" value={currency.format(data.realizado.faturamento)} />
+              <StatCard label="Agendamentos" value={goalRealizado?.agendamentos ?? 0} accent />
+              <StatCard label="Reuniões realizadas" value={goalRealizado?.reunioes_realizadas ?? 0} />
+              <StatCard label="Vendas" value={goalRealizado?.vendas ?? 0} />
+              <StatCard label="Faturamento" value={currency.format(goalRealizado?.faturamento ?? 0)} />
             </div>
           </div>
 

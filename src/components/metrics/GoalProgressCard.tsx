@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { GoalProgress } from '@/components/ui/GoalProgress'
-import { goalPeriodRange, useRealized } from '@/hooks/useRealized'
+import { goalPeriodRange, useGoalRealized } from '@/hooks/useRealized'
 import { rangeLabel } from '@/components/ui/DateRangePicker'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
 import type { Goal, GoalMetric } from '@/types/database'
@@ -39,16 +39,20 @@ export function goalPeriodLabel(goal: Pick<Goal, 'period_start' | 'period_end'>)
  * período dela, mas incompreensível ao lado do relatório. Combinado com o time: por
  * ora a meta mostra exatamente o que o relatório mostra para o período escolhido ali,
  * não o período que está gravado na meta.
+ *
+ * O realizado em si vem só do que a pessoa LANÇA na grade "Seu relatório do dia"
+ * (`useGoalRealized`), não do que o kanban gera sozinho. `role` não entra mais nessa
+ * conta — fica como prop porque quem chama este componente ainda o tem à mão.
  */
 export function GoalProgressCard({
   goal,
-  role,
+  role: _role,
   personName,
   compact,
   range,
 }: {
   goal: Goal
-  /** Papel de QUEM tem a meta: muda a regra do realizado (pré-venda credita quem agendou, closer quem atendeu). */
+  /** Não usado no cálculo (o realizado da meta é só manual); mantido pela API dos chamadores. */
   role: Role | null
   /** Só nas telas da Gestão, onde as metas de várias pessoas aparecem juntas. */
   personName?: string
@@ -61,7 +65,7 @@ export function GoalProgressCard({
     () => range ?? goalPeriodRange(goal.period_start, goal.period_end),
     [range, goal.period_start, goal.period_end],
   )
-  const { data, isLoading } = useRealized(goal.profile_id, role, effectiveRange)
+  const { data, isLoading } = useGoalRealized(goal.profile_id, effectiveRange)
 
   const atual = data?.[goal.metric] ?? 0
   const fmt = (n: number) => formatMetric(goal.metric, n)
@@ -119,7 +123,7 @@ export function GoalProgressCard({
       />
 
       <p className="mt-2 text-[11px] text-white/25">
-        Realizado somando kanban + o que você lançou no relatório diário, em {periodLabel}.
+        Realizado a partir do que você lançou em "Seu relatório do dia", em {periodLabel}.
       </p>
     </div>
   )

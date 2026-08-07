@@ -123,6 +123,27 @@ export async function fetchRealized(profileId: string, role: Role, range: DateRa
 }
 
 /**
+ * O realizado de uma pessoa, contando SÓ o que ela lançou na grade "Seu relatório do
+ * dia" (a tabela social_metrics) — nada de meetings/sales do kanban.
+ *
+ * É o que alimenta a META, por pedido do time: o card de progresso somava kanban +
+ * manual e isso deixava o número maior do que o que a pessoa via ao abrir a grade e
+ * contar na mão, o que gerava desconfiança. `fetchRealized` (acima) continua
+ * combinando os dois — ele alimenta o relatório diário, que precisa mostrar a
+ * atividade real, incluindo o que nasceu de um card arrastado no kanban.
+ */
+export async function fetchGoalRealized(profileId: string, range: DateRange): Promise<Realized> {
+  const { byProfile } = await fetchManualByProfile(range)
+  const manual = byProfile.get(profileId)
+  return {
+    agendamentos: manual?.agendamentos ?? 0,
+    reunioes_realizadas: manual?.reunioes_realizadas ?? 0,
+    vendas: manual?.vendas ?? 0,
+    faturamento: manual?.faturamento ?? 0,
+  }
+}
+
+/**
  * Uma assinatura de realtime para a TELA inteira de metas.
  *
  * Fica separada de `useRealized` de propósito: uma página de ranking renderiza uma
@@ -134,16 +155,25 @@ export function useRealizedRealtime() {
 }
 
 /**
- * O realizado de uma pessoa num período.
+ * O realizado de uma pessoa num período (kanban + manual). Usado pelo relatório
+ * diário, que precisa refletir a atividade real da pessoa.
  *
- * A chave inclui só profileId/role/range, então duas metas do mesmo período
- * compartilham uma única consulta — o caso comum é 3 ou 4 metas com o mesmo início e
- * fim.
+ * A chave inclui só profileId/role/range, então duas consultas do mesmo período
+ * compartilham uma única busca.
  */
 export function useRealized(profileId: string | null, role: Role | null, range: DateRange) {
   return useQuery({
     queryKey: ['realizado', profileId, role, range],
     enabled: !!profileId && !!role,
     queryFn: () => fetchRealized(profileId!, role!, range),
+  })
+}
+
+/** O realizado que alimenta a meta — só o lançamento manual. Ver `fetchGoalRealized`. */
+export function useGoalRealized(profileId: string | null, range: DateRange) {
+  return useQuery({
+    queryKey: ['realizado-meta', profileId, range],
+    enabled: !!profileId,
+    queryFn: () => fetchGoalRealized(profileId!, range),
   })
 }
