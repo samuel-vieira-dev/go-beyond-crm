@@ -82,7 +82,12 @@ export function useCloserPerformance(range: DateRange) {
         .lte('sold_at', range.to)
       if (salesError) throw salesError
 
-      // Agrupa as vendas por quem realmente as fez — nenhuma venda fica de fora.
+      const { rows: manualRows, byProfile: manual } = await fetchManualByProfile(range)
+
+      // A linha de cada closer no ranking mostra só o lançamento manual — o mesmo
+      // número que aparece no relatório dele e alimenta a meta logo abaixo, no mesmo
+      // card. Antes somava kanban + manual aqui e o card mostrava dois valores
+      // diferentes de "vendas" lado a lado (um no ranking, outro na barra de meta).
       const perfById = new Map<string, CloserPerformance>()
       // Começa com os closers ativos (para aparecerem mesmo com 0 vendas).
       for (const p of profiles ?? []) {
@@ -90,17 +95,6 @@ export function useCloserPerformance(range: DateRange) {
           perfById.set(p.id, { profileId: p.id, fullName: p.full_name, sales: 0, revenue: 0 })
         }
       }
-      for (const s of sales ?? []) {
-        const existing =
-          perfById.get(s.closer_id) ??
-          { profileId: s.closer_id, fullName: nameById.get(s.closer_id) ?? 'Sem closer', sales: 0, revenue: 0 }
-        existing.sales += 1
-        existing.revenue += Number(s.amount)
-        perfById.set(s.closer_id, existing)
-      }
-      // Vendas fechadas fora do kanban entram no mesmo ranking — senão o closer que
-      // opera no WhatsApp aparece zerado ao lado de quem registra card.
-      const { rows: manualRows, byProfile: manual } = await fetchManualByProfile(range)
       for (const [profileId, totals] of manual) {
         if (totals.vendas === 0 && totals.faturamento === 0) continue
         const existing =

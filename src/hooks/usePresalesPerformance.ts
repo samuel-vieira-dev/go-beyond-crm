@@ -26,19 +26,22 @@ export interface SocialRow extends SdrRow {
 /**
  * Performance separada por canal: o SDR recebe leads, a Social Seller ativa contatos.
  *
- * "Agendamentos" conta pela data em que a reunião foi MARCADA (meetings.created_at),
- * não pela data em que ela vai acontecer (scheduled_at) — é a mesma definição do
- * funil do Admin (useFunnelMetrics) e do relatório do próprio pré-vendedor
- * (usePresalesDailyReport). Contar por scheduled_at fazia o número deste ranking
- * divergir MUITO do que o pré-vendedor via no relatório dele: alguém que marca hoje
- * uma reunião pra semana que vem soma no relatório dele hoje, mas só apareceria
- * aqui na semana que vem — o vendedor via 26 agendamentos e o admin via 6.
+ * Ofertas, Agendamentos, Realizadas, No-show, Vendas e Receita vêm SÓ do lançamento
+ * manual (social_metrics) — o mesmo número que a pessoa vê em "Seu relatório do dia"
+ * e que alimenta a meta dela. Antes este ranking somava kanban + manual nesses
+ * campos, e o card mostrava dois números pra "agendamentos" na mesma tela: 40 no
+ * funil (kanban+manual) e 22 na barra de meta logo abaixo (só manual, ver
+ * useRealized). Por pedido do time: o funil do admin passa a refletir só o que foi
+ * lançado no relatório, pra bater com a meta e com o que o vendedor vê ao abrir a
+ * própria grade.
  *
- * "Realizadas"/"No-show" continuam por scheduled_at: o resultado pertence ao dia em
- * que a reunião de fato aconteceu, não ao dia em que foi marcada.
+ * "Leads" e "Qualificados" continuam vindo do kanban (mais o manual): não têm como
+ * ser só manual — "Leads" não tem campo manual equivalente (é o lead que ENTROU,
+ * não uma atividade que se lança à mão), e qualificação normalmente acontece direto
+ * no card, não na grade.
  */
 export function usePresalesPerformanceSplit(range: DateRange) {
-  useRealtimeInvalidate('presales-split-rt', ['leads', 'meetings', 'sales', 'social_metrics'], [['presales-split']])
+  useRealtimeInvalidate('presales-split-rt', ['leads', 'social_metrics'], [['presales-split']])
 
   return useQuery({
     queryKey: ['presales-split', range],
@@ -46,26 +49,11 @@ export function usePresalesPerformanceSplit(range: DateRange) {
       const from = range.from
       const to = range.to
 
-      const [{ data: profiles }, { data: leads }, { data: allMeetings }, { data: sales }, { data: metrics }] =
-        await Promise.all([
-          supabase.from('profiles').select('id, full_name, role').eq('active', true),
-          supabase.from('leads').select('owner_id, is_mql, stage, created_at').gte('created_at', from).lte('created_at', to),
-          // Tabela pequena: mais simples e mais correto buscar tudo e separar em JS
-          // por dois campos de data diferentes do que arriscar duas queries divergirem.
-          supabase.from('meetings').select('booked_by, closer_id, status, lead_id, scheduled_at, created_at'),
-          supabase.from('sales').select('lead_id, amount, sold_at').gte('sold_at', from).lte('sold_at', to),
-          supabase.from('social_metrics').select('*').gte('date', localDay(from)).lte('date', localDay(to)),
-        ])
-
-      const meetings = allMeetings ?? []
-      const bookedInRange = meetings.filter((m) => m.created_at >= from && m.created_at <= to)
-      const heldInRange = meetings.filter((m) => m.scheduled_at >= from && m.scheduled_at <= to)
-
-      // Quem agendou a reunião do lead → a venda é creditada a essa pessoa, mesmo que
-      // o agendamento tenha sido marcado fora do período (a venda pode fechar semanas
-      // depois da reunião ter sido agendada).
-      const bookerByLead = new Map<string, string>()
-      for (const m of meetings) if (m.lead_id && m.booked_by) bookerByLead.set(m.lead_id, m.booked_by)
+      const [{ data: profiles }, { data: leads }, { data: metrics }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, role').eq('active', true),
+        supabase.from('leads').select('owner_id, is_mql, created_at').gte('created_at', from).lte('created_at', to),
+        supabase.from('social_metrics').select('*').gte('date', localDay(from)).lte('date', localDay(to)),
+      ])
 
       const base = (p: { id: string; full_name: string }) => ({
         profileId: p.id,
@@ -93,34 +81,9 @@ export function usePresalesPerformanceSplit(range: DateRange) {
         if (!r) continue
         r.leads++
         if (l.is_mql) r.qualificados++
-        const s = social.get(l.owner_id!)
-        if (s && ['oferta_reuniao', 'follow_up_prevenda', 'agendado', 'reuniao_agendada', 'reuniao_realizada', 'follow_up_fechamento', 'venda_fechada'].includes(l.stage)) {
-          s.ofertas++
-        }
       }
 
-      for (const m of bookedInRange) {
-        const r = row(m.booked_by)
-        if (r) r.agendamentos++
-      }
-
-      for (const m of heldInRange) {
-        const r = row(m.booked_by)
-        if (!r) continue
-        if (m.status === 'realizada') r.realizadas++
-        if (m.status === 'nao_compareceu') r.noShow++
-      }
-
-      for (const sale of sales ?? []) {
-        const r = row(bookerByLead.get(sale.lead_id))
-        if (!r) continue
-        r.vendas++
-        r.receita += Number(sale.amount)
-      }
-
-      // Lançamento manual: o que aconteceu fora do kanban (Business Suite, WhatsApp,
-      // ou período anterior à adoção do CRM). SOMA ao que veio dos cards — quem
-      // trabalha nos dois lugares aparece com o total, não com metade.
+      // Lançamento manual: o mesmo número que aparece em "Seu relatório do dia".
       for (const m of (metrics ?? []) as ManualMetrics[]) {
         const r = row(m.profile_id)
         if (!r) continue
@@ -128,8 +91,6 @@ export function usePresalesPerformanceSplit(range: DateRange) {
         r.agendamentos += m.agendamentos ?? 0
         r.realizadas += m.reunioes_realizadas ?? 0
         r.noShow += m.no_shows ?? 0
-        // Faltava: a coluna "Vendas" do ranking ignorava o lançamento manual, então
-        // ela discordava da meta de vendas da mesma pessoa, que já o somava.
         r.vendas += m.vendas ?? 0
         r.receita += Number(m.faturamento ?? 0)
 
