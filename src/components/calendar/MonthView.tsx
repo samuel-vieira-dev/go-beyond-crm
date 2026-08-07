@@ -77,6 +77,7 @@ export function MonthView({
               <div className="space-y-1">
                 {dayMeetings.slice(0, 3).map((m) => {
                   const color = STATUS_COLOR[m.status]
+                  const leadName = m.lead?.name ?? 'Lead indisponível'
                   return (
                     <div
                       key={m.id}
@@ -85,11 +86,11 @@ export function MonthView({
                         onEventClick(m)
                       }}
                       className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] text-white/80 hover:bg-white/10"
-                      title={`${format(new Date(m.scheduled_at), 'HH:mm')} · ${m.lead.name} — ${color.label}`}
+                      title={`${format(new Date(m.scheduled_at), 'HH:mm')} · ${leadName} — ${color.label}`}
                     >
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color.dot }} />
                       <span className="shrink-0 text-white/50">{format(new Date(m.scheduled_at), 'HH:mm')}</span>
-                      <span className="truncate">{m.lead.name}</span>
+                      <span className="truncate">{leadName}</span>
                     </div>
                   )
                 })}

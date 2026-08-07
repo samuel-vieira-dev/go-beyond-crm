@@ -1,7 +1,10 @@
 const RELOAD_FLAG = 'chunk-reload-attempted'
 
+// A última alternativa cobre o caso em que o servidor devolve o index.html no
+// lugar de um chunk que já não existe: o Chrome recusa com "'text/html' is not a
+// valid JavaScript MIME type" em vez de um erro de import.
 const CHUNK_ERROR_PATTERN =
-  /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk .* failed/i
+  /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Loading chunk .* failed|is not a valid JavaScript MIME type/i
 
 export function isChunkLoadError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : String(error ?? '')

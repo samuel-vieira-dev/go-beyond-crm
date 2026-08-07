@@ -49,7 +49,12 @@ export interface Meeting {
 }
 
 export interface MeetingWithLead extends Meeting {
-  lead: Lead
+  /**
+   * Vem null quando o lead não é visível para quem consultou (RLS) — acontece
+   * quando o lead é transferido para outro closer mas a reunião antiga continua
+   * na agenda do closer original. Sempre checar antes de ler campos.
+   */
+  lead: Lead | null
   booked_by_profile?: Pick<Profile, 'id' | 'full_name'> | null
 }
 

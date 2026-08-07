@@ -81,16 +81,17 @@ export function TimeGridView({
                 {dayMeetings.map((m) => {
                   const color = STATUS_COLOR[m.status]
                   const start = new Date(m.scheduled_at)
+                  const leadName = m.lead?.name ?? 'Lead indisponível'
                   return (
                     <button
                       key={m.id}
                       onClick={() => onEventClick(m)}
                       className="absolute inset-x-1 overflow-hidden rounded-md px-1.5 py-1 text-left shadow-sm transition-transform hover:scale-[1.02]"
                       style={{ top: eventTopPx(start) + 1, height: HOUR_HEIGHT - 3, background: color.bg }}
-                      title={`${format(start, 'HH:mm')} · ${m.lead.name} — ${color.label}`}
+                      title={`${format(start, 'HH:mm')} · ${leadName} — ${color.label}`}
                     >
                       <p className="truncate text-[11px] font-semibold" style={{ color: color.text }}>
-                        {format(start, 'HH:mm')} {m.lead.name}
+                        {format(start, 'HH:mm')} {leadName}
                       </p>
                     </button>
                   )

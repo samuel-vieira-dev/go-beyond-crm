@@ -69,6 +69,8 @@ export function CloserAgendaPage() {
   }
 
   function handleEventClick(m: MeetingWithLead) {
+    // Sem o lead (transferido para outro closer) não há o que abrir no modal.
+    if (!m.lead) return
     setSelectedLead(m.lead as unknown as LeadWithRelations)
   }
 
