@@ -102,7 +102,10 @@ export interface ManualMetrics {
   conversas: number
   mqls: number
   ofertas: number
+  em_atendimento: number
   follow_ups: number
+  /** Reunião marcada sem passar pela qualificação. Separada de `agendamentos`. */
+  agendamentos_diretos: number
   agendamentos: number
   reunioes_realizadas: number
   no_shows: number

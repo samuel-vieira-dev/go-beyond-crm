@@ -136,7 +136,10 @@ export async function fetchGoalRealized(profileId: string, range: DateRange): Pr
   const { byProfile } = await fetchManualByProfile(range)
   const manual = byProfile.get(profileId)
   return {
-    agendamentos: manual?.agendamentos ?? 0,
+    // Agendamento direto é agendamento: entra na meta junto com o do fluxo normal,
+    // pela mesma regra do funil geral do Dashboard. No ranking de pré-vendas os dois
+    // aparecem separados, para a gestão ver de onde veio cada um.
+    agendamentos: (manual?.agendamentos ?? 0) + (manual?.agendamentos_diretos ?? 0),
     reunioes_realizadas: manual?.reunioes_realizadas ?? 0,
     vendas: manual?.vendas ?? 0,
     faturamento: manual?.faturamento ?? 0,

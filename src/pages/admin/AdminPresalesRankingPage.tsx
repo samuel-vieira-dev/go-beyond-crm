@@ -46,17 +46,21 @@ export function AdminPresalesRankingPage() {
         <>
           <Section
             title="SDR"
-            subtitle="Leads recebidos → qualificados → agendamentos → reuniões → vendas"
+            subtitle="Leads recebidos → qualificados → em atendimento → follow-up → agendamentos → reuniões → vendas"
             empty="Nenhum SDR ativo."
             rows={data.sdr}
             goals={goals}
             role="sdr"
             range={range}
             steps={(r) => [
-              { label: 'Leads', value: r.leads },
+              { label: 'Leads recebidos', value: r.leads },
               { label: 'Qualificados', value: r.qualificados, rate: pct(r.qualificados, r.leads) },
-              { label: 'Agendamentos', value: r.agendamentos, rate: pct(r.agendamentos, r.qualificados) },
-              { label: 'Realizadas', value: r.realizadas, rate: pct(r.realizadas, r.agendamentos) },
+              { label: 'Em atendimento', value: r.emAtendimento },
+              { label: 'Follow-up', value: r.followUps },
+              // Separados a pedido da gestão: o direto não passou pela qualificação.
+              { label: 'Agend. diretos', value: r.agendamentosDiretos },
+              { label: 'Agendamentos SDR', value: r.agendamentos },
+              { label: 'Realizadas', value: r.realizadas, rate: pct(r.realizadas, r.agendamentos + r.agendamentosDiretos) },
               { label: 'Vendas', value: r.vendas, rate: pct(r.vendas, r.realizadas) },
             ]}
           />

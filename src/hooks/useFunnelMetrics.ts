@@ -75,7 +75,10 @@ export function useFunnelMetrics(range: DateRange) {
       const totals = [...manual.values()].reduce(
         (acc, t) => ({
           qualified: acc.qualified + t.mqls,
-          scheduled: acc.scheduled + t.agendamentos,
+          // Agendamento direto entra no mesmo degrau do funil geral: aqui a pergunta
+          // é "quantas reuniões foram marcadas", não por qual caminho. No ranking de
+          // pré-vendas os dois aparecem separados.
+          scheduled: acc.scheduled + t.agendamentos + t.agendamentos_diretos,
           held: acc.held + t.reunioes_realizadas,
           noShow: acc.noShow + t.no_shows,
           sales: acc.sales + t.vendas,

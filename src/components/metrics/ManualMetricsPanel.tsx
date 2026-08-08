@@ -3,14 +3,19 @@ import { differenceInCalendarDays, format, isToday, isValid, parseISO } from 'da
 import { ptBR } from 'date-fns/locale'
 import { useAuth } from '@/context/AuthContext'
 import {
+  DERIVED_BY_ROLE,
+  DERIVED_FIELD_HINTS,
+  DERIVED_FIELD_LABELS,
   FIELDS_BY_ROLE,
   MANUAL_FIELD_HINTS,
   MANUAL_FIELD_LABELS,
   MONEY_FIELDS,
   useMyManualMetrics,
   useSaveManualField,
+  type DerivedField,
   type ManualField,
 } from '@/hooks/useManualMetrics'
+import { useDerivedDailyCounts, type DerivedTotals } from '@/hooks/useDerivedDailyCounts'
 import { cn } from '@/lib/cn'
 import { rangeLabel } from '@/components/ui/DateRangePicker'
 import type { DateRange } from '@/hooks/useFunnelMetrics'
@@ -42,7 +47,7 @@ function daysInRange(range: DateRange): string[] {
 
 const ROLE_HINT: Record<string, string> = {
   social_seller: 'Ativações e conversas acontecem no Business Suite e não viram card.',
-  sdr: 'Números que não passaram pelo kanban — qualificação por DM, agendamento fechado no WhatsApp.',
+  sdr: 'Números que não passaram pelo kanban — atendimento por DM, agendamento fechado no WhatsApp.',
   closer:
     'Reuniões e vendas sem card no kanban. O que você lançar por "+ Lead fora do kanban" já vira card e não entra aqui.',
   admin: 'Lançamento manual de qualquer etapa, para qualquer papel.',
@@ -62,7 +67,15 @@ export function ManualMetricsPanel({ range }: { range: DateRange }) {
   const { profile } = useAuth()
   const { data, isLoading } = useMyManualMetrics(range)
 
-  const fields = FIELDS_BY_ROLE[profile?.role ?? 'sdr'] ?? FIELDS_BY_ROLE.sdr
+  const role = profile?.role ?? 'sdr'
+  const fields = FIELDS_BY_ROLE[role] ?? FIELDS_BY_ROLE.sdr
+  // Colunas read-only vindas do kanban (hoje só a SDR tem). A consulta só sai quando
+  // o papel realmente usa alguma.
+  const derived = DERIVED_BY_ROLE[role] ?? []
+  const { data: derivedCounts } = useDerivedDailyCounts(
+    derived.length > 0 ? (profile?.id ?? null) : null,
+    range,
+  )
   const allDays = daysInRange(range)
   const days = allDays.slice(0, MAX_ROWS)
 
@@ -77,17 +90,32 @@ export function ManualMetricsPanel({ range }: { range: DateRange }) {
         </span>
       </div>
       <p className="mb-3 text-xs text-white/40">
-        {ROLE_HINT[profile?.role ?? 'sdr']} Estes números somam ao que você já registrou no kanban.
+        {ROLE_HINT[role]}
+        {derived.length > 0 && ' As duas primeiras colunas vêm do kanban e não são editáveis.'}
       </p>
 
       {isLoading ? (
         <p className="text-sm text-white/40">Carregando...</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-separate border-spacing-0 text-sm">
+          {/* min-w acompanha o nº de colunas: a grade da SDR tem 6 + o Dia, e os
+              rótulos derivados são longos ("Leads qualificados"). Abaixo disso a
+              tabela rola na horizontal em vez de espremer. */}
+          <table
+            className="w-full border-separate border-spacing-0 text-sm"
+            style={{ minWidth: `${180 + (derived.length + fields.length) * 82}px` }}
+          >
             <thead>
               <tr className="text-left text-[11px] text-white/40">
                 <th className="whitespace-nowrap py-2 pr-3 font-medium">Dia</th>
+                {derived.map((f) => (
+                  <th key={f} className="py-2 pr-1 text-right font-medium" title={DERIVED_FIELD_HINTS[f]}>
+                    {DERIVED_FIELD_LABELS[f]}
+                    <span className="ml-1 text-white/25" aria-label="não editável">
+                      🔒
+                    </span>
+                  </th>
+                ))}
                 {fields.map((f) => (
                   <th key={f} className="py-2 pr-1 text-right font-medium" title={MANUAL_FIELD_HINTS[f]}>
                     {MANUAL_FIELD_LABELS[f]}
@@ -101,6 +129,8 @@ export function ManualMetricsPanel({ range }: { range: DateRange }) {
                   key={day}
                   day={day}
                   fields={fields}
+                  derived={derived}
+                  derivedRow={derivedCounts?.byDay[day]}
                   row={rowByDay.get(day)}
                   profileId={profile?.id ?? ''}
                 />
@@ -111,6 +141,11 @@ export function ManualMetricsPanel({ range }: { range: DateRange }) {
                 <td className="whitespace-nowrap border-t border-white/10 py-2 pr-3 font-medium">
                   Total · {rangeLabel(range)}
                 </td>
+                {derived.map((f) => (
+                  <td key={f} className="border-t border-white/10 py-2 pr-3 text-right font-semibold text-white">
+                    {derivedCounts ? formatCount(derivedCounts.totals[f]) : '—'}
+                  </td>
+                ))}
                 {fields.map((f) => (
                   <td key={f} className="border-t border-white/10 py-2 pr-3 text-right font-semibold text-white">
                     {data ? formatValue(f, data.totals[f]) : '—'}
@@ -139,11 +174,15 @@ function formatValue(field: ManualField, value: number) {
 function DayRow({
   day,
   fields,
+  derived,
+  derivedRow,
   row,
   profileId,
 }: {
   day: string
   fields: ManualField[]
+  derived: DerivedField[]
+  derivedRow?: DerivedTotals
   row?: ManualMetrics
   profileId: string
 }) {
@@ -161,6 +200,11 @@ function DayRow({
         </span>
         {hoje && <span className="ml-1 text-[11px] text-gold-400">hoje</span>}
       </td>
+      {derived.map((f) => (
+        <td key={f} className="border-t border-white/5 py-1 pr-1 text-right">
+          <DerivedCell value={derivedRow?.[f] ?? 0} />
+        </td>
+      ))}
       {fields.map((f) => (
         <td key={f} className="border-t border-white/5 py-1 pr-1 text-right">
           <MetricCell day={day} field={f} value={row?.[f] ?? 0} profileId={profileId} />
@@ -168,6 +212,27 @@ function DayRow({
       ))}
     </tr>
   )
+}
+
+/** Coluna vinda do kanban: mesma métrica visual das editáveis, mas sem afordância de
+ *  clique — o número não é digitado, é contado. */
+function DerivedCell({ value }: { value: number }) {
+  return (
+    <span
+      title="Vem do kanban — não editável"
+      className={cn(
+        'inline-block w-full min-w-[4rem] cursor-default rounded-md px-2 py-1 text-right text-sm',
+        'border border-transparent bg-white/[0.03]',
+        value > 0 ? 'text-white/80' : 'text-white/20',
+      )}
+    >
+      {formatCount(value)}
+    </span>
+  )
+}
+
+function formatCount(value: number) {
+  return value > 0 ? String(value) : '—'
 }
 
 /**

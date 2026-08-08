@@ -10,6 +10,9 @@ export interface SdrRow {
   fullName: string
   leads: number
   qualificados: number
+  emAtendimento: number
+  followUps: number
+  agendamentosDiretos: number
   agendamentos: number
   realizadas: number
   noShow: number
@@ -26,22 +29,31 @@ export interface SocialRow extends SdrRow {
 /**
  * Performance separada por canal: o SDR recebe leads, a Social Seller ativa contatos.
  *
- * Ofertas, Agendamentos, Realizadas, No-show, Vendas e Receita vêm SÓ do lançamento
- * manual (social_metrics) — o mesmo número que a pessoa vê em "Seu relatório do dia"
- * e que alimenta a meta dela. Antes este ranking somava kanban + manual nesses
- * campos, e o card mostrava dois números pra "agendamentos" na mesma tela: 40 no
- * funil (kanban+manual) e 22 na barra de meta logo abaixo (só manual, ver
- * useRealized). Por pedido do time: o funil do admin passa a refletir só o que foi
- * lançado no relatório, pra bater com a meta e com o que o vendedor vê ao abrir a
- * própria grade.
+ * DE ONDE VEM CADA NÚMERO — a regra é: se o campo existe na grade "Seu relatório do
+ * dia", ele vem SÓ de lá; se não existe, vem do kanban.
  *
- * "Leads" e "Qualificados" continuam vindo do kanban (mais o manual): não têm como
- * ser só manual — "Leads" não tem campo manual equivalente (é o lead que ENTROU,
- * não uma atividade que se lança à mão), e qualificação normalmente acontece direto
- * no card, não na grade.
+ *   Só manual  Em atendimento, Follow-up, Agendamentos diretos, Agendamentos, Ofertas,
+ *              Ativações, Conversas. São exatamente as colunas que a pessoa preenche,
+ *              então o ranking mostra o mesmo número que ela vê — e o mesmo que a
+ *              barra de meta logo abaixo, no mesmo card.
+ *   Só kanban  Leads, Qualificados (leads.is_mql, a tag QUALIFICADO do card),
+ *              Realizadas, No-show, Vendas, Receita. Nenhum destes tem coluna na
+ *              grade da pré-venda: se fossem lidos do manual, ficariam zerados para
+ *              sempre — foi o que aconteceu quando o ranking virou manual-only e a
+ *              Carolina passou de 5 realizadas / 2 vendas para 0.
+ *
+ * "Agendamentos diretos" e "Agendamentos" ficam SEPARADOS aqui, a pedido da gestão
+ * (ver de onde veio cada um). No funil geral do Dashboard e na meta eles somam.
+ *
+ * "Realizadas"/"No-show" contam por scheduled_at (o dia em que a reunião aconteceu);
+ * as vendas são creditadas a quem agendou a reunião daquele lead.
  */
 export function usePresalesPerformanceSplit(range: DateRange) {
-  useRealtimeInvalidate('presales-split-rt', ['leads', 'social_metrics'], [['presales-split']])
+  useRealtimeInvalidate(
+    'presales-split-rt',
+    ['leads', 'meetings', 'sales', 'social_metrics'],
+    [['presales-split']],
+  )
 
   return useQuery({
     queryKey: ['presales-split', range],
@@ -49,17 +61,32 @@ export function usePresalesPerformanceSplit(range: DateRange) {
       const from = range.from
       const to = range.to
 
-      const [{ data: profiles }, { data: leads }, { data: metrics }] = await Promise.all([
-        supabase.from('profiles').select('id, full_name, role').eq('active', true),
-        supabase.from('leads').select('owner_id, is_mql, created_at').gte('created_at', from).lte('created_at', to),
-        supabase.from('social_metrics').select('*').gte('date', localDay(from)).lte('date', localDay(to)),
-      ])
+      const [{ data: profiles }, { data: leads }, { data: allMeetings }, { data: sales }, { data: metrics }] =
+        await Promise.all([
+          supabase.from('profiles').select('id, full_name, role').eq('active', true),
+          supabase.from('leads').select('owner_id, is_mql, created_at').gte('created_at', from).lte('created_at', to),
+          supabase.from('meetings').select('booked_by, status, lead_id, scheduled_at'),
+          supabase.from('sales').select('lead_id, amount, sold_at').gte('sold_at', from).lte('sold_at', to),
+          supabase.from('social_metrics').select('*').gte('date', localDay(from)).lte('date', localDay(to)),
+        ])
+
+      const meetings = allMeetings ?? []
+      const heldInRange = meetings.filter((m) => m.scheduled_at >= from && m.scheduled_at <= to)
+
+      // Quem agendou a reunião do lead → a venda é creditada a essa pessoa, mesmo que
+      // o agendamento tenha sido marcado fora do período (a venda pode fechar semanas
+      // depois da reunião ter sido agendada).
+      const bookerByLead = new Map<string, string>()
+      for (const m of meetings) if (m.lead_id && m.booked_by) bookerByLead.set(m.lead_id, m.booked_by)
 
       const base = (p: { id: string; full_name: string }) => ({
         profileId: p.id,
         fullName: p.full_name,
         leads: 0,
         qualificados: 0,
+        emAtendimento: 0,
+        followUps: 0,
+        agendamentosDiretos: 0,
         agendamentos: 0,
         realizadas: 0,
         noShow: 0,
@@ -76,6 +103,7 @@ export function usePresalesPerformanceSplit(range: DateRange) {
 
       const row = (id?: string | null) => (id ? (sdr.get(id) ?? social.get(id)) : undefined)
 
+      // ── Kanban: leads recebidos e qualificados (a tag QUALIFICADO do card) ──
       for (const l of leads ?? []) {
         const r = row(l.owner_id)
         if (!r) continue
@@ -83,16 +111,29 @@ export function usePresalesPerformanceSplit(range: DateRange) {
         if (l.is_mql) r.qualificados++
       }
 
-      // Lançamento manual: o mesmo número que aparece em "Seu relatório do dia".
+      // ── Kanban: o que a pré-venda entregou e virou reunião/venda ──
+      for (const m of heldInRange) {
+        const r = row(m.booked_by)
+        if (!r) continue
+        if (m.status === 'realizada') r.realizadas++
+        if (m.status === 'nao_compareceu') r.noShow++
+      }
+
+      for (const sale of sales ?? []) {
+        const r = row(bookerByLead.get(sale.lead_id))
+        if (!r) continue
+        r.vendas++
+        r.receita += Number(sale.amount)
+      }
+
+      // ── Manual: exatamente as colunas de "Seu relatório do dia" ──
       for (const m of (metrics ?? []) as ManualMetrics[]) {
         const r = row(m.profile_id)
         if (!r) continue
-        r.qualificados += m.mqls ?? 0
+        r.emAtendimento += m.em_atendimento ?? 0
+        r.followUps += m.follow_ups ?? 0
+        r.agendamentosDiretos += m.agendamentos_diretos ?? 0
         r.agendamentos += m.agendamentos ?? 0
-        r.realizadas += m.reunioes_realizadas ?? 0
-        r.noShow += m.no_shows ?? 0
-        r.vendas += m.vendas ?? 0
-        r.receita += Number(m.faturamento ?? 0)
 
         const s = social.get(m.profile_id)
         if (s) {
@@ -102,9 +143,11 @@ export function usePresalesPerformanceSplit(range: DateRange) {
         }
       }
 
+      // Ordena pelo total de agendamentos (os dois tipos), como no funil geral.
+      const totalAgendado = (r: SdrRow) => r.agendamentos + r.agendamentosDiretos
       return {
-        sdr: [...sdr.values()].sort((a, b) => b.agendamentos - a.agendamentos),
-        social: [...social.values()].sort((a, b) => b.agendamentos - a.agendamentos),
+        sdr: [...sdr.values()].sort((a, b) => totalAgendado(b) - totalAgendado(a)),
+        social: [...social.values()].sort((a, b) => totalAgendado(b) - totalAgendado(a)),
       }
     },
   })

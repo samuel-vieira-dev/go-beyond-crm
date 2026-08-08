@@ -1,98 +1,30 @@
 import { useQuery } from '@tanstack/react-query'
-import { format } from 'date-fns'
 import { supabase } from '@/lib/supabase'
 import { useRealtimeInvalidate } from './useRealtime'
 import { fetchManualByProfile } from './useManualMetrics'
 import { fetchRealized, type Realized } from './useRealized'
 import type { DateRange } from './useFunnelMetrics'
-import type { LeadStage, Role } from '@/types/domain'
+import type { LeadStage } from '@/types/domain'
 
 export interface PresalesDailyReport {
-  newLeads: number
-  meetingsBooked: number
-  /**
-   * Exatamente os números que as metas medem, pela MESMA conta (ver useRealized).
-   * Estão aqui para que o relatório e a aba de metas não possam mostrar valores
-   * diferentes do mesmo período — era essa a divergência que o time reportava.
-   */
-  realizado: Realized
-  /** Contagem ATUAL de leads por etapa (do próprio pré-vendedor). */
-  pipeline: Record<string, number>
   leads: { id: string; name: string; stage: LeadStage; created_at: string }[]
-  /** Mesmos números, quebrados por dia ("yyyy-MM-dd" local) para o relatório diário. */
-  byDay: Record<string, { newLeads: number; meetingsBooked: number }>
 }
 
-/** Relatório do pré-vendedor: atividade no período + snapshot atual do pipeline dele. */
-export function usePresalesDailyReport(profileId: string | null, role: Role, range: DateRange) {
-  useRealtimeInvalidate(
-    'presales-report-rt',
-    ['leads', 'lead_events', 'meetings', 'social_metrics'],
-    [['daily-report', 'presales']],
-  )
+/**
+ * A lista de leads que o pré-vendedor recebeu no período.
+ *
+ * Ficou só nisso: os blocos "Sua atividade no período" e "Seu pipeline agora" saíram
+ * da tela, e os números do dia agora vivem todos na grade editável (ManualMetricsPanel
+ * + useDerivedDailyCounts). Manter aqui os agregados que ninguém lê custaria quatro
+ * consultas por abertura de tela e mais uma chance de divergir da grade.
+ */
+export function usePresalesDailyReport(profileId: string | null, range: DateRange) {
+  useRealtimeInvalidate('presales-report-rt', ['leads'], [['daily-report', 'presales']])
 
   return useQuery({
-    queryKey: ['daily-report', 'presales', profileId, role, range],
+    queryKey: ['daily-report', 'presales', profileId, range],
     enabled: !!profileId,
     queryFn: async (): Promise<PresalesDailyReport> => {
-      const { data: events, error: eventsError } = await supabase
-        .from('lead_events')
-        .select('created_at')
-        .eq('actor_id', profileId!)
-        .eq('type', 'created')
-        .gte('created_at', range.from)
-        .lte('created_at', range.to)
-      if (eventsError) throw eventsError
-
-      // Agendamentos: mesma fonte e mesmo campo de data do funil do Admin
-      // (useFunnelMetrics) e do ranking (usePresalesPerformanceSplit) — a data em que
-      // a reunião foi MARCADA, não a data em que ela vai acontecer. Vem direto de
-      // meetings (não de lead_events): não depende do evento espelho ter sido gravado.
-      const { data: booked, error: bookedError } = await supabase
-        .from('meetings')
-        .select('created_at')
-        .eq('booked_by', profileId!)
-        .gte('created_at', range.from)
-        .lte('created_at', range.to)
-      if (bookedError) throw bookedError
-
-      let newLeads = 0
-      const byDay: PresalesDailyReport['byDay'] = {}
-      for (const ev of events ?? []) {
-        newLeads++
-        // Dia local: o relatório é lido no fuso de quem preenche, não em UTC.
-        const day = format(new Date(ev.created_at), 'yyyy-MM-dd')
-        const bucket = (byDay[day] ??= { newLeads: 0, meetingsBooked: 0 })
-        bucket.newLeads++
-      }
-      for (const m of booked ?? []) {
-        const day = format(new Date(m.created_at), 'yyyy-MM-dd')
-        const bucket = (byDay[day] ??= { newLeads: 0, meetingsBooked: 0 })
-        bucket.meetingsBooked++
-      }
-
-      // Lançamento manual soma ao total E ao dia certo — sem isso, o número do topo
-      // (com manual) não batia com a soma das linhas da grade abaixo (que já mostrava
-      // o manual separado).
-      const { rows: manualRows } = await fetchManualByProfile(range)
-      for (const r of manualRows) {
-        if (r.profile_id !== profileId || !r.agendamentos) continue
-        const bucket = (byDay[r.date] ??= { newLeads: 0, meetingsBooked: 0 })
-        bucket.meetingsBooked += r.agendamentos
-      }
-      // Os totais das metas vêm da fonte única — não de uma segunda conta feita aqui.
-      const realizado = await fetchRealized(profileId!, role, range)
-      const meetingsBooked = realizado.agendamentos
-
-      // Snapshot atual do pipeline (leads do próprio pré-vendedor).
-      const { data: allLeads, error: pipelineError } = await supabase
-        .from('leads')
-        .select('stage')
-        .eq('owner_id', profileId!)
-      if (pipelineError) throw pipelineError
-      const pipeline: Record<string, number> = {}
-      for (const l of allLeads ?? []) pipeline[l.stage] = (pipeline[l.stage] ?? 0) + 1
-
       const { data: leads, error: leadsError } = await supabase
         .from('leads')
         .select('id, name, stage, created_at')
@@ -102,7 +34,7 @@ export function usePresalesDailyReport(profileId: string | null, role: Role, ran
         .order('created_at', { ascending: false })
       if (leadsError) throw leadsError
 
-      return { newLeads, meetingsBooked, realizado, pipeline, leads: leads ?? [], byDay }
+      return { leads: leads ?? [] }
     },
   })
 }
